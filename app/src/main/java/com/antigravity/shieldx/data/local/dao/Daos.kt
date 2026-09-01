@@ -175,45 +175,6 @@ interface ConfigurationDao {
 // === TaRZI Super-App DAOs ===
 
 @Dao
-interface MemoryDao {
-    @Query("SELECT * FROM memory_items ORDER BY updatedAt DESC")
-    fun getAllMemoriesFlow(): Flow<List<MemoryItemEntity>>
-
-    @Query("SELECT * FROM memory_items WHERE `key` = :key LIMIT 1")
-    suspend fun getMemory(key: String): MemoryItemEntity?
-
-    @Query("SELECT * FROM memory_items WHERE `key` LIKE '%' || :query || '%' OR `value` LIKE '%' || :query || '%'")
-    suspend fun searchMemories(query: String): List<MemoryItemEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(item: MemoryItemEntity)
-
-    @Query("DELETE FROM memory_items WHERE `key` = :key")
-    suspend fun deleteByKey(key: String): Int
-
-    @Query("DELETE FROM memory_items")
-    suspend fun clearAll()
-}
-
-@Dao
-interface AutomationDao {
-    @Query("SELECT * FROM automations WHERE isEnabled = 1")
-    fun getActiveAutomationsFlow(): Flow<List<AutomationEntity>>
-
-    @Query("SELECT * FROM automations ORDER BY createdAt DESC")
-    fun getAllAutomationsFlow(): Flow<List<AutomationEntity>>
-
-    @Query("SELECT * FROM automations WHERE triggerType = :triggerType AND isEnabled = 1")
-    suspend fun getAutomationsByTrigger(triggerType: String): List<AutomationEntity>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(automation: AutomationEntity)
-
-    @Delete
-    suspend fun delete(automation: AutomationEntity)
-}
-
-@Dao
 interface AuditEventDao {
     @Query("SELECT * FROM audit_events ORDER BY timestamp DESC LIMIT :limit")
     fun getRecentAuditEventsFlow(limit: Int = 100): Flow<List<AuditEventEntity>>
@@ -235,13 +196,4 @@ interface UserPreferenceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun set(pref: UserPreferenceEntity)
-}
-
-@Dao
-interface NetworkProfileDao {
-    @Query("SELECT * FROM network_profiles WHERE ssid = :ssid LIMIT 1")
-    suspend fun getProfileForSsid(ssid: String): NetworkProfileEntity?
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdate(profile: NetworkProfileEntity)
 }

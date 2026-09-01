@@ -134,7 +134,7 @@ fun TarziApp(securityManager: SecurityManager) {
 
                 composable(Screen.Assistant.route) {
                     AssistantChatScreen(
-                        securityManager = securityManager,
+                        agent = securityManager.agentGraph,
                         onNavigateToMusic = { navController.navigateTop(Screen.Music.route) },
                         onNavigateToProtection = { navController.navigateTop(Screen.Protection.route) }
                     )

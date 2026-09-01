@@ -102,39 +102,8 @@
 
         <!-- MusicPlaybackService is declared by the :music module's manifest. -->
 
-        <!--
-            Gives Tarzi system-wide sight and control. This is what lets the
-            assistant act inside other apps, not just inside Tarzi.
-        -->
-        <service
-            android:name=".assistant.system.TarziAccessibilityService"
-            android:exported="true"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/tarzi_accessibility_config" />
-        </service>
-
-        <!-- Always-on wake word and voice loop -->
-        <service
-            android:name=".assistant.system.TarziVoiceService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
-
-        <!-- Screen sharing: lets Tarzi see pixels, not just element text -->
-        <service
-            android:name=".assistant.system.ScreenVisionService"
-            android:exported="false"
-            android:foregroundServiceType="mediaProjection" />
-
-        <!-- Floating Tarzi orb drawn over other apps -->
-        <service
-            android:name=".assistant.system.TarziOverlayService"
-            android:exported="false" />
+        <!-- Assistant services (accessibility, voice, screen vision, overlay)
+             are declared by the :ai-agent module's manifest. -->
 
         <!-- Device Admin Receiver for Device Owner / Managed Device Mode -->
         <receiver

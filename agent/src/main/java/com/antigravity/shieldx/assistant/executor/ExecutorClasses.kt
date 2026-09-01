@@ -5,8 +5,7 @@ import com.antigravity.shieldx.assistant.commands.CommandRegistry
 import com.antigravity.shieldx.core.model.*
 import com.antigravity.shieldx.core.runtime.EventBus
 import com.antigravity.shieldx.core.runtime.TaRZIEvent
-import com.antigravity.shieldx.data.local.AppDatabase
-import com.antigravity.shieldx.data.local.entities.AuditEventEntity
+import com.antigravity.shieldx.core.runtime.AuditSink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -46,7 +45,7 @@ class DeterministicExecutor(
     private val context: Context,
     private val commandRegistry: CommandRegistry,
     private val confirmationManager: ConfirmationManager,
-    private val database: AppDatabase,
+    private val auditSink: AuditSink,
     private val eventBus: EventBus
 ) {
 
@@ -132,15 +131,12 @@ class DeterministicExecutor(
 
     private suspend fun logAudit(action: String, status: String, details: String) {
         withContext(Dispatchers.IO) {
-            database.auditEventDao().insert(
-                AuditEventEntity(
-                    timestamp = System.currentTimeMillis(),
-                    category = "ASSISTANT",
-                    action = action,
-                    actor = "USER_ASSISTANT",
-                    details = details,
-                    status = status
-                )
+            auditSink.record(
+                category = "ASSISTANT",
+                action = action,
+                actor = "USER_ASSISTANT",
+                details = details,
+                status = status
             )
         }
     }

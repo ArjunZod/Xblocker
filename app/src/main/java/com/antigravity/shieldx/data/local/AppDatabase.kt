@@ -70,11 +70,11 @@ class Converters {
         ModelDecisionEntity::class,
         PolicyVersionEntity::class,
         ConfigurationEntity::class,
-        MemoryItemEntity::class,
-        AutomationEntity::class,
+        com.antigravity.shieldx.assistant.data.MemoryItemEntity::class,
+        com.antigravity.shieldx.assistant.data.AutomationEntity::class,
         AuditEventEntity::class,
         UserPreferenceEntity::class,
-        NetworkProfileEntity::class,
+        com.antigravity.shieldx.assistant.data.NetworkProfileEntity::class,
         com.antigravity.shieldx.music.PlayHistoryEntity::class
     ],
     version = 3,
@@ -93,11 +93,11 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun modelDecisionDao(): ModelDecisionDao
     abstract fun policyVersionDao(): PolicyVersionDao
     abstract fun configurationDao(): ConfigurationDao
-    abstract fun memoryDao(): MemoryDao
-    abstract fun automationDao(): AutomationDao
+    abstract fun memoryDao(): com.antigravity.shieldx.assistant.data.MemoryDao
+    abstract fun automationDao(): com.antigravity.shieldx.assistant.data.AutomationDao
     abstract fun auditEventDao(): AuditEventDao
     abstract fun userPreferenceDao(): UserPreferenceDao
-    abstract fun networkProfileDao(): NetworkProfileDao
+    abstract fun networkProfileDao(): com.antigravity.shieldx.assistant.data.NetworkProfileDao
     abstract fun playHistoryDao(): com.antigravity.shieldx.music.PlayHistoryDao
 
     companion object {

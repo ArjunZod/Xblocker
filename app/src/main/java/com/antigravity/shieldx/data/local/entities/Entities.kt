@@ -158,41 +158,6 @@ data class ConfigurationEntity(
 // === TaRZI Super-App Entities ===
 
 @Entity(
-    tableName = "memory_items",
-    indices = [
-        Index(value = ["key"], unique = true),
-        Index(value = ["category"])
-    ]
-)
-data class MemoryItemEntity(
-    @PrimaryKey val key: String,
-    val value: String,
-    val source: String = "USER_EXPLICIT", // USER_EXPLICIT, INFERRED, SYSTEM
-    val consent: Boolean = true,
-    val category: String = "PREFERENCE", // PREFERENCE, FACT, ROUTINE, SENSITIVE
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
-)
-
-@Entity(
-    tableName = "automations",
-    indices = [
-        Index(value = ["triggerType"]),
-        Index(value = ["isEnabled"])
-    ]
-)
-data class AutomationEntity(
-    @PrimaryKey val id: String,
-    val name: String,
-    val triggerType: String, // WIFI_CONNECTED, TIME_SCHEDULE, BLUETOOTH, BATTERY, BOOT
-    val triggerPayload: String, // e.g. "HOME_WIFI", "08:00", "HEADSET_CONNECTED"
-    val conditionsJson: String = "[]",
-    val actionsJson: String, // JSON array of serialized ToolRequests
-    val isEnabled: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis()
-)
-
-@Entity(
     tableName = "audit_events",
     indices = [
         Index(value = ["timestamp"]),
@@ -213,14 +178,5 @@ data class AuditEventEntity(
 data class UserPreferenceEntity(
     @PrimaryKey val key: String,
     val value: String,
-    val updatedAt: Long = System.currentTimeMillis()
-)
-
-@Entity(tableName = "network_profiles")
-data class NetworkProfileEntity(
-    @PrimaryKey val ssid: String,
-    val profileName: String,
-    val protectionLevel: String = "MAXIMUM",
-    val isHomeNetwork: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis()
 )

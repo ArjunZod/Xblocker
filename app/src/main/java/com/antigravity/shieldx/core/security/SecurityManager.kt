@@ -27,7 +27,12 @@ class SecurityManager private constructor(context: Context) {
     private val music = MusicGraph(appContext, protection.policyEngine, database.playHistoryDao())
     private val agent = AgentGraph(
         context = appContext,
-        database = database,
+        configStore = protection.configRepository,
+        auditSink = protection.auditRepository,
+        protectionInsights = protection.auditRepository,
+        memoryDao = database.memoryDao(),
+        automationDao = database.automationDao(),
+        networkProfileDao = database.networkProfileDao(),
         eventBus = eventBus,
         protectionController = protection.protectionController,
         musicController = music.musicController
@@ -72,7 +77,11 @@ class SecurityManager private constructor(context: Context) {
     val musicGraph: MusicGraph get() = music
 
     // --- Assistant subsystem (delegated to AgentGraph) ---
-    var voiceAssistantManager: com.antigravity.shieldx.assistant.voice.VoiceAssistantManager? = null
+    var voiceAssistantManager: com.antigravity.shieldx.assistant.voice.VoiceAssistantManager?
+        get() = agent.voiceAssistantManager
+        set(value) { agent.voiceAssistantManager = value }
+    /** Full agent-owned dependency set, for the assistant's own screens/services. */
+    val agentGraph: AgentGraph get() = agent
     val commandRegistry get() = agent.commandRegistry
     val confirmationManager get() = agent.confirmationManager
     val intentEngine get() = agent.intentEngine
@@ -89,6 +98,7 @@ class SecurityManager private constructor(context: Context) {
         ServiceRegistry.register(ProtectionController::class.java, protectionController)
         ServiceRegistry.register(MusicController::class.java, musicController)
         ServiceRegistry.register(EventBus::class.java, eventBus)
+        ServiceRegistry.register(AgentGraph::class.java, agent)
         ServiceRegistry.register(com.antigravity.shieldx.assistant.memory.MemoryManager::class.java, memoryManager)
         ServiceRegistry.register(com.antigravity.shieldx.assistant.automation.AutomationEngine::class.java, automationEngine)
 

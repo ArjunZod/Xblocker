@@ -20,9 +20,11 @@ import com.antigravity.shieldx.assistant.commands.ToolDefinition
 import com.antigravity.shieldx.core.model.*
 import com.antigravity.shieldx.core.runtime.MusicController
 import com.antigravity.shieldx.core.runtime.ProtectionController
-import com.antigravity.shieldx.data.local.AppDatabase
-import com.antigravity.shieldx.data.local.entities.MemoryItemEntity
-import com.antigravity.shieldx.data.local.entities.NetworkProfileEntity
+import com.antigravity.shieldx.assistant.data.MemoryDao
+import com.antigravity.shieldx.assistant.data.NetworkProfileDao
+import com.antigravity.shieldx.core.runtime.ProtectionInsights
+import com.antigravity.shieldx.assistant.data.MemoryItemEntity
+import com.antigravity.shieldx.assistant.data.NetworkProfileEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -34,7 +36,9 @@ class ToolHandlers(
     private val commandRegistry: CommandRegistry,
     private val protectionController: ProtectionController,
     private val musicController: MusicController,
-    private val database: AppDatabase
+    private val memoryDao: MemoryDao,
+    private val networkProfileDao: NetworkProfileDao,
+    private val protectionInsights: ProtectionInsights
 ) {
 
     fun registerAll() {
@@ -96,7 +100,7 @@ class ToolHandlers(
                 riskLevel = RiskLevel.L0_READ_ONLY,
                 handler = { req ->
                     val status = protectionController.getStatus()
-                    val blocks = database.blockedEventDao().getBlockedCountSince(0)
+                    val blocks = protectionInsights.blockedCountSince(0)
                     ToolResult(
                         true,
                         req.toolName,
@@ -113,7 +117,7 @@ class ToolHandlers(
                 description = "View recently intercepted explicit content events",
                 riskLevel = RiskLevel.L0_READ_ONLY,
                 handler = { req ->
-                    val events = database.blockedEventDao().getRecentEvents(10)
+                    val events = protectionInsights.recentBlockedEvents(10)
                     ToolResult(
                         true,
                         req.toolName,
@@ -689,7 +693,7 @@ class ToolHandlers(
                     val key = req.parameters["key"] as? String ?: "fact"
                     val value = req.parameters["value"] as? String ?: ""
                     withContext(Dispatchers.IO) {
-                        database.memoryDao().insertOrUpdate(
+                        memoryDao.insertOrUpdate(
                             MemoryItemEntity(
                                 key = key.trim().lowercase(),
                                 value = value.trim(),
@@ -711,7 +715,7 @@ class ToolHandlers(
                 handler = { req ->
                     val key = req.parameters["key"] as? String ?: ""
                     val item = withContext(Dispatchers.IO) {
-                        database.memoryDao().getMemory(key.trim().lowercase())
+                        memoryDao.getMemory(key.trim().lowercase())
                     }
                     if (item != null) {
                         ToolResult(true, req.toolName, "Your ${item.key} is ${item.value}.", mapOf("value" to item.value))
@@ -753,7 +757,7 @@ class ToolHandlers(
                         )
                     } else {
                         withContext(Dispatchers.IO) {
-                            database.networkProfileDao().insertOrUpdate(
+                            networkProfileDao.insertOrUpdate(
                                 NetworkProfileEntity(
                                     ssid = ssid,
                                     profileName = profileName,

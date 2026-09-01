@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.antigravity.shieldx.assistant.TarziBrain
 import com.antigravity.shieldx.assistant.voice.VoiceAssistantManager
 import com.antigravity.shieldx.core.model.ToolRequest
-import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.assistant.AgentGraph
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import kotlinx.coroutines.launch
@@ -63,7 +63,7 @@ data class ChatMessage(
  */
 @Composable
 fun AssistantChatScreen(
-    securityManager: SecurityManager,
+    agent: AgentGraph,
     onNavigateToMusic: () -> Unit,
     onNavigateToProtection: () -> Unit
 ) {
@@ -79,7 +79,7 @@ fun AssistantChatScreen(
     var confirmationPrompt by remember { mutableStateOf("") }
     var voiceManagerRef by remember { mutableStateOf<VoiceAssistantManager?>(null) }
 
-    val brain = remember { TarziBrain(securityManager) }
+    val brain = remember { agent.newBrain() }
     val listState = rememberLazyListState()
 
     var showVoiceMode by remember { mutableStateOf(false) }
@@ -152,7 +152,7 @@ fun AssistantChatScreen(
     DisposableEffect(context) {
         val vm = VoiceAssistantManager(
             context = context,
-            musicController = securityManager.musicController,
+            musicController = agent.musicController,
             onSpeechRecognized = { transcript ->
                 if (transcript.isNotBlank()) {
                     handleUserQuery(transcript)
@@ -160,11 +160,11 @@ fun AssistantChatScreen(
             }
         )
         voiceManagerRef = vm
-        securityManager.voiceAssistantManager = vm
+        agent.voiceAssistantManager = vm
         onDispose {
             vm.destroy()
-            if (securityManager.voiceAssistantManager === vm) {
-                securityManager.voiceAssistantManager = null
+            if (agent.voiceAssistantManager === vm) {
+                agent.voiceAssistantManager = null
             }
         }
     }

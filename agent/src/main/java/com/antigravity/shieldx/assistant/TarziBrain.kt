@@ -7,7 +7,6 @@ import com.antigravity.shieldx.assistant.ai.GeminiAiService
 import com.antigravity.shieldx.assistant.system.ScreenVisionService
 import com.antigravity.shieldx.assistant.system.TarziAccessibilityService
 import com.antigravity.shieldx.core.model.ToolRequest
-import com.antigravity.shieldx.core.security.SecurityManager
 import java.util.Locale
 
 /**
@@ -32,7 +31,7 @@ data class BrainResponse(
  *  3. The on-device IntentEngine as a final offline fallback.
  */
 class TarziBrain(
-    private val securityManager: SecurityManager
+    private val agent: AgentGraph
 ) {
 
     companion object {
@@ -50,13 +49,13 @@ class TarziBrain(
     }
 
     private val deepSeek = DeepSeekAiService(
-        getApiKey = { securityManager.configRepository.get("deepseek_api_key") },
-        getModel = { securityManager.configRepository.get("deepseek_model") }
+        getApiKey = { agent.configStore.get("deepseek_api_key") },
+        getModel = { agent.configStore.get("deepseek_model") }
     )
 
     private val gemini = GeminiAiService(
-        getApiKey = { securityManager.configRepository.get("gemini_api_key") },
-        getModel = { securityManager.configRepository.get("gemini_model") }
+        getApiKey = { agent.configStore.get("gemini_api_key") },
+        getModel = { agent.configStore.get("gemini_model") }
     )
 
     /**
@@ -65,9 +64,9 @@ class TarziBrain(
      * available for its image input.
      */
     private suspend fun activeBackend(): AiBackend? {
-        val deepSeekKey = securityManager.configRepository.get("deepseek_api_key")
+        val deepSeekKey = agent.configStore.get("deepseek_api_key")
         if (!deepSeekKey.isNullOrBlank()) return deepSeek
-        val geminiKey = securityManager.configRepository.get("gemini_api_key")
+        val geminiKey = agent.configStore.get("gemini_api_key")
         if (!geminiKey.isNullOrBlank()) return gemini
         return null
     }
@@ -110,7 +109,7 @@ class TarziBrain(
         }
 
         // 5. Local high-priority device commands (flashlight, volume, playback toggles)
-        val localRequests = securityManager.intentEngine.parse(query)
+        val localRequests = agent.intentEngine.parse(query)
         val isFastLocalAction = localRequests.isNotEmpty() && localRequests.all { req ->
             req.toolName in setOf("SET_FLASHLIGHT", "SET_VOLUME", "PAUSE", "RESUME", "GET_BATTERY", "GET_STORAGE")
         }
@@ -174,7 +173,7 @@ class TarziBrain(
         if (nameMatch != null && !lower.startsWith("i am tarzi") && !lower.startsWith("i am busy")) {
             val name = nameMatch.groupValues[1].trim().trim(',', '.')
             if (name.isNotEmpty() && name.split(" ").size <= 4) {
-                securityManager.memoryManager.saveFact("user_name", name, "PROFILE")
+                agent.memoryManager.saveFact("user_name", name, "PROFILE")
                 return BrainResponse("Pleasure to meet you, $name. I have stored your name in my persistent memory.")
             }
         }
@@ -184,7 +183,7 @@ class TarziBrain(
         if (favMatch != null) {
             val category = favMatch.groupValues[1].trim()
             val value = favMatch.groupValues[2].trim().trim(',', '.')
-            securityManager.memoryManager.saveFact("favorite_$category", value, "PREFERENCE")
+            agent.memoryManager.saveFact("favorite_$category", value, "PREFERENCE")
             return BrainResponse("Got it! I will remember that your favorite $category is $value.")
         }
 
@@ -193,13 +192,13 @@ class TarziBrain(
         if (rememberMatch != null) {
             val fact = rememberMatch.groupValues[1].trim()
             val key = "fact_" + fact.take(20).replace(Regex("[^a-zA-Z0-9]"), "_").lowercase(Locale.US)
-            securityManager.memoryManager.saveFact(key, fact, "NOTE")
+            agent.memoryManager.saveFact(key, fact, "NOTE")
             return BrainResponse("I have saved that to memory: \"$fact\"")
         }
 
         // Recall user name: "who am i" / "what is my name"
         if (lower.contains("who am i") || lower.contains("what is my name") || lower.contains("what's my name")) {
-            val name = securityManager.memoryManager.recallFact("user_name")
+            val name = agent.memoryManager.recallFact("user_name")
             return if (name != null) {
                 BrainResponse("Your name is $name, according to my memory.")
             } else {
@@ -211,7 +210,7 @@ class TarziBrain(
         val favQueryMatch = Regex("^(?:what is|what's)\\s+my\\s+favorite\\s+([a-zA-Z0-9 ]+)", RegexOption.IGNORE_CASE).find(trimmed)
         if (favQueryMatch != null) {
             val cat = favQueryMatch.groupValues[1].trim().replace(Regex("[?!.]"), "")
-            val value = securityManager.memoryManager.recallFact("favorite_$cat")
+            val value = agent.memoryManager.recallFact("favorite_$cat")
             return if (value != null) {
                 BrainResponse("Your favorite $cat is $value.")
             } else {
@@ -221,7 +220,7 @@ class TarziBrain(
 
         // Recall all memory: "what do you remember about me" / "show memory"
         if (lower.contains("what do you remember") || lower == "show memory" || lower == "list memory" || lower.contains("what is in your memory")) {
-            val facts = securityManager.memoryManager.searchFacts("")
+            val facts = agent.memoryManager.searchFacts("")
             return if (facts.isNotEmpty()) {
                 val list = facts.joinToString("; ") { "${it.key.replace('_', ' ')}: ${it.value}" }
                 BrainResponse("Here is what I have saved in memory: $list", displayText = "Stored Memory:\n" + facts.joinToString("\n") { "• ${it.key}: ${it.value}" })
@@ -235,7 +234,7 @@ class TarziBrain(
         if (forgetMatch != null) {
             val item = forgetMatch.groupValues[1].trim().replace(Regex("[?!.]"), "")
             val key = if (item.startsWith("favorite")) "favorite_" + item.removePrefix("favorite").trim() else item
-            val success = securityManager.memoryManager.forgetFact(key) || securityManager.memoryManager.forgetFact(item)
+            val success = agent.memoryManager.forgetFact(key) || agent.memoryManager.forgetFact(item)
             return if (success) {
                 BrainResponse("I have deleted $item from memory.")
             } else {
@@ -252,7 +251,7 @@ class TarziBrain(
         // 1. RAM and Memory Diagnostics
         if (lower.contains("ram") || lower.contains("mobile ram") || lower.contains("memory usage") || lower.contains("check ram")) {
             return try {
-                val actMan = securityManager.appContext.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                val actMan = agent.context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
                 val memInfo = android.app.ActivityManager.MemoryInfo()
                 actMan?.getMemoryInfo(memInfo)
                 val totalGb = String.format(Locale.US, "%.1f", memInfo.totalMem / (1024.0 * 1024.0 * 1024.0))
@@ -359,7 +358,7 @@ class TarziBrain(
         val summaries = mutableListOf<String>()
 
         for (request in requests) {
-            val result = securityManager.deterministicExecutor.execute(request)
+            val result = agent.deterministicExecutor.execute(request)
 
             if (result.requiresConfirmation) {
                 val prompt = result.confirmationPrompt
@@ -454,7 +453,7 @@ class TarziBrain(
      */
     private suspend fun attachScreenContext(query: String): String {
         val memories = try {
-            securityManager.memoryManager.searchFacts("").take(6)
+            agent.memoryManager.searchFacts("").take(6)
         } catch (_: Exception) { emptyList() }
 
         val memSection = if (memories.isNotEmpty()) {
@@ -494,7 +493,7 @@ class TarziBrain(
 
     /** Execute a request the user just approved. */
     suspend fun confirmAndRun(request: ToolRequest): BrainResponse {
-        val result = securityManager.deterministicExecutor.execute(
+        val result = agent.deterministicExecutor.execute(
             request.copy(userConfirmed = true)
         )
         return BrainResponse(result.resultSummary, result.resultSummary, listOf(request))

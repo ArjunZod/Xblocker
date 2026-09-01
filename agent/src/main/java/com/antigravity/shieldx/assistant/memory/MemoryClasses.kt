@@ -1,7 +1,7 @@
 package com.antigravity.shieldx.assistant.memory
 
-import com.antigravity.shieldx.data.local.AppDatabase
-import com.antigravity.shieldx.data.local.entities.MemoryItemEntity
+import com.antigravity.shieldx.assistant.data.MemoryDao
+import com.antigravity.shieldx.assistant.data.MemoryItemEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -27,12 +27,12 @@ class ContextEngine {
 /**
  * Manages persistent user-approved facts and preferences.
  */
-class MemoryManager(private val database: AppDatabase) {
+class MemoryManager(private val memoryDao: MemoryDao) {
 
-    val allMemoriesFlow: Flow<List<MemoryItemEntity>> = database.memoryDao().getAllMemoriesFlow()
+    val allMemoriesFlow: Flow<List<MemoryItemEntity>> = memoryDao.getAllMemoriesFlow()
 
     suspend fun saveFact(key: String, value: String, category: String = "PREFERENCE") = withContext(Dispatchers.IO) {
-        database.memoryDao().insertOrUpdate(
+        memoryDao.insertOrUpdate(
             MemoryItemEntity(
                 key = key.trim().lowercase(),
                 value = value.trim(),
@@ -44,14 +44,14 @@ class MemoryManager(private val database: AppDatabase) {
     }
 
     suspend fun recallFact(key: String): String? = withContext(Dispatchers.IO) {
-        database.memoryDao().getMemory(key.trim().lowercase())?.value
+        memoryDao.getMemory(key.trim().lowercase())?.value
     }
 
     suspend fun searchFacts(query: String): List<MemoryItemEntity> = withContext(Dispatchers.IO) {
-        database.memoryDao().searchMemories(query)
+        memoryDao.searchMemories(query)
     }
 
     suspend fun forgetFact(key: String): Boolean = withContext(Dispatchers.IO) {
-        database.memoryDao().deleteByKey(key.trim().lowercase()) > 0
+        memoryDao.deleteByKey(key.trim().lowercase()) > 0
     }
 }

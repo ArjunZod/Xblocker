@@ -175,7 +175,45 @@ class AppPolicyRepository(
     )
 }
 
-class AuditRepository(private val database: AppDatabase) {
+class AuditRepository(private val database: AppDatabase) :
+    com.antigravity.shieldx.core.runtime.AuditSink,
+    com.antigravity.shieldx.core.runtime.ProtectionInsights {
+
+    override suspend fun record(
+        category: String,
+        action: String,
+        actor: String,
+        details: String,
+        status: String
+    ) = withContext(Dispatchers.IO) {
+        database.auditEventDao().insert(
+            com.antigravity.shieldx.data.local.entities.AuditEventEntity(
+                timestamp = System.currentTimeMillis(),
+                category = category,
+                action = action,
+                actor = actor,
+                details = details,
+                status = status
+            )
+        )
+    }
+
+    override suspend fun blockedCountSince(sinceEpochMs: Long): Int = withContext(Dispatchers.IO) {
+        database.blockedEventDao().getBlockedCountSince(sinceEpochMs)
+    }
+
+    override suspend fun recentBlockedEvents(limit: Int): List<com.antigravity.shieldx.core.runtime.BlockedEventSummary> =
+        withContext(Dispatchers.IO) {
+            database.blockedEventDao().getRecentEvents(limit).map {
+                com.antigravity.shieldx.core.runtime.BlockedEventSummary(
+                    target = it.target,
+                    category = it.category.name,
+                    reason = it.reason.name,
+                    timestamp = it.timestamp
+                )
+            }
+        }
+
     val recentBlockedEventsFlow: Flow<List<BlockedEventEntity>> = database.blockedEventDao().getRecentEventsFlow(100)
     val recentTamperEventsFlow: Flow<List<TamperEventEntity>> = database.tamperEventDao().getRecentTamperEventsFlow(50)
 
@@ -228,14 +266,16 @@ class AuditRepository(private val database: AppDatabase) {
     }
 }
 
-class ConfigRepository(private val database: AppDatabase) {
-    suspend fun get(key: String): String? = withContext(Dispatchers.IO) {
+class ConfigRepository(private val database: AppDatabase) :
+    com.antigravity.shieldx.core.runtime.ConfigStore {
+
+    override suspend fun get(key: String): String? = withContext(Dispatchers.IO) {
         database.configurationDao().getConfig(key)
     }
 
-    fun getFlow(key: String): Flow<String?> = database.configurationDao().getConfigFlow(key)
+    override fun getFlow(key: String): Flow<String?> = database.configurationDao().getConfigFlow(key)
 
-    suspend fun set(key: String, value: String) = withContext(Dispatchers.IO) {
+    override suspend fun set(key: String, value: String) = withContext(Dispatchers.IO) {
         database.configurationDao().setConfig(
             ConfigurationEntity(
                 configKey = key,

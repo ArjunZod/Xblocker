@@ -2,8 +2,8 @@ package com.antigravity.shieldx.assistant.automation
 
 import com.antigravity.shieldx.assistant.executor.DeterministicExecutor
 import com.antigravity.shieldx.core.model.ToolRequest
-import com.antigravity.shieldx.data.local.AppDatabase
-import com.antigravity.shieldx.data.local.entities.AutomationEntity
+import com.antigravity.shieldx.assistant.data.AutomationDao
+import com.antigravity.shieldx.assistant.data.AutomationEntity
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.CoroutineScope
@@ -16,16 +16,16 @@ import kotlinx.coroutines.withContext
  * Executes routine automations when system triggers fire.
  */
 class AutomationEngine(
-    private val database: AppDatabase,
+    private val automationDao: AutomationDao,
     private val executor: DeterministicExecutor,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default)
 ) {
 
     private val gson = Gson()
-    val activeAutomationsFlow: Flow<List<AutomationEntity>> = database.automationDao().getActiveAutomationsFlow()
+    val activeAutomationsFlow: Flow<List<AutomationEntity>> = automationDao.getActiveAutomationsFlow()
 
     suspend fun handleTrigger(triggerType: String, payload: String = "") = withContext(Dispatchers.IO) {
-        val automations = database.automationDao().getAutomationsByTrigger(triggerType)
+        val automations = automationDao.getAutomationsByTrigger(triggerType)
 
         for (auto in automations) {
             if (auto.triggerPayload.isNotEmpty() && !auto.triggerPayload.equals(payload, ignoreCase = true)) {
@@ -64,6 +64,6 @@ class AutomationEngine(
             actionsJson = gson.toJson(actions),
             isEnabled = true
         )
-        database.automationDao().insertOrUpdate(entity)
+        automationDao.insertOrUpdate(entity)
     }
 }

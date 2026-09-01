@@ -22,11 +22,11 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.antigravity.shieldx.R
+import com.antigravity.shieldx.agent.R
 import com.antigravity.shieldx.assistant.TarziBrain
 import com.antigravity.shieldx.core.runtime.MusicController
 import com.antigravity.shieldx.core.runtime.ServiceRegistry
-import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.assistant.AgentGraph
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -97,7 +97,7 @@ class TarziVoiceService : Service(), TextToSpeech.OnInitListener {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    private lateinit var securityManager: SecurityManager
+    private lateinit var agent: AgentGraph
     private lateinit var brain: TarziBrain
 
     private var wakeWordEngine: WakeWordEngine? = null
@@ -109,8 +109,8 @@ class TarziVoiceService : Service(), TextToSpeech.OnInitListener {
 
     override fun onCreate() {
         super.onCreate()
-        securityManager = SecurityManager.getInstance(applicationContext)
-        brain = TarziBrain(securityManager)
+        agent = ServiceRegistry.get(AgentGraph::class.java)
+        brain = agent.newBrain()
         tts = TextToSpeech(this, this)
         createNotificationChannel()
     }
@@ -161,7 +161,7 @@ class TarziVoiceService : Service(), TextToSpeech.OnInitListener {
         wakeWordEngine = engine
 
         scope.launch {
-            val picovoiceKey = securityManager.configRepository.get("picovoice_access_key")
+            val picovoiceKey = agent.configStore.get("picovoice_access_key")
             engine.start(picovoiceKey)
             _stateFlow.value = if (engine.backend == WakeWordEngine.Backend.UNAVAILABLE) {
                 TarziState.OFFLINE

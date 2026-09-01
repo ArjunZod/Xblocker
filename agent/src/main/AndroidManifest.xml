@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            Gives Tarzi system-wide sight and control. This is what lets the
+            assistant act inside other apps, not just inside Tarzi.
+        -->
+        <service
+            android:name="com.antigravity.shieldx.assistant.system.TarziAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/tarzi_accessibility_config" />
+        </service>
+
+        <!-- Always-on wake word and voice loop -->
+        <service
+            android:name="com.antigravity.shieldx.assistant.system.TarziVoiceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Screen sharing: lets Tarzi see pixels, not just element text -->
+        <service
+            android:name="com.antigravity.shieldx.assistant.system.ScreenVisionService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- Floating Tarzi orb drawn over other apps -->
+        <service
+            android:name="com.antigravity.shieldx.assistant.system.TarziOverlayService"
+            android:exported="false" />
+    </application>
+
+</manifest>
