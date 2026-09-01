@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.antigravity.shieldx.core.security.SecurityManager
-import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import kotlinx.coroutines.launch
@@ -77,8 +76,6 @@ fun TarziControlScreen(
     val hasContacts = remember(refresh) { context.hasPermission(Manifest.permission.READ_CONTACTS) }
     val hasPhone = remember(refresh) { context.hasPermission(Manifest.permission.CALL_PHONE) }
 
-    val assistantInstalled = remember(refresh) { CompanionApp.Assistant.isInstalled(context) }
-
     var hasAdminPin by remember(refresh) {
         mutableStateOf(securityManager.adminRecoveryController.isPinSet())
     }
@@ -86,9 +83,7 @@ fun TarziControlScreen(
         mutableStateOf(securityManager.lockdownController.isActive())
     }
 
-    var deepSeekKey by remember { mutableStateOf("") }
     var geminiKey by remember { mutableStateOf("") }
-    var picovoiceKey by remember { mutableStateOf("") }
     var showKeyDialog by remember { mutableStateOf<KeyKind?>(null) }
     var showPinDialog by remember { mutableStateOf(false) }
     var showLockConfirm by remember { mutableStateOf(false) }
@@ -101,9 +96,7 @@ fun TarziControlScreen(
     var aiStatus by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        deepSeekKey = securityManager.configRepository.get("deepseek_api_key").orEmpty()
         geminiKey = securityManager.configRepository.get("gemini_api_key").orEmpty()
-        picovoiceKey = securityManager.configRepository.get("picovoice_access_key").orEmpty()
     }
 
     val permissions = rememberLauncherForActivityResult(
@@ -118,23 +111,6 @@ fun TarziControlScreen(
     ) {
 
         item { ScreenHeader(title = "Settings") }
-
-        // Assistant ----------------------------------------------------------
-
-        item { SectionHeader("Assistant") }
-        item {
-            Grouped {
-                SettingRow(
-                    title = "TaRZI Assistant",
-                    description = if (assistantInstalled) {
-                        "Voice, screen control and automations live in the assistant app"
-                    } else {
-                        "Not installed on this device"
-                    },
-                    onClick = { CompanionApp.Assistant.launch(context) }
-                )
-            }
-        }
 
         // Permissions --------------------------------------------------------
 
@@ -240,47 +216,15 @@ fun TarziControlScreen(
 
         // Intelligence -------------------------------------------------------
 
-        item { SectionHeader("Intelligence") }
+        item { SectionHeader("Content classification") }
         item {
             Grouped {
                 SettingRow(
-                    title = "DeepSeek API key",
-                    description = when {
-                        deepSeekKey.isBlank() -> "The model Tarzi thinks and talks with"
-                        aiStatus == null -> "Checking..."
-                        else -> aiStatus!!
-                    },
-                    onClick = { showKeyDialog = KeyKind.DeepSeek },
-                    trailing = {
-                        when {
-                            deepSeekKey.isBlank() -> RowValue("Not set")
-                            aiStatus == null -> RowValue("...")
-                            aiStatus!!.startsWith("Connected") ->
-                                StatusChip("Working", StatusTone.Positive)
-                            else -> StatusChip("Failed", StatusTone.Critical)
-                        }
-                    }
-                )
-                RowDivider()
-                SettingRow(
                     title = "Gemini API key",
-                    description = "Optional. Adds image understanding for screen sharing.",
+                    description = "Optional. A second opinion on pages the on-device classifier is unsure about.",
                     onClick = { showKeyDialog = KeyKind.Gemini },
                     trailing = {
                         if (geminiKey.isNotBlank()) RowValue("Added", Success) else RowValue("Not set")
-                    }
-                )
-                RowDivider()
-                SettingRow(
-                    title = "Picovoice key",
-                    description = "Optional. Improves wake word accuracy and battery use",
-                    onClick = { showKeyDialog = KeyKind.Picovoice },
-                    trailing = {
-                        if (picovoiceKey.isNotBlank()) {
-                            RowValue("Added", Success)
-                        } else {
-                            RowValue("Not set")
-                        }
                     }
                 )
             }
@@ -306,25 +250,16 @@ fun TarziControlScreen(
 
     showKeyDialog?.let { kind ->
         val current = when (kind) {
-            KeyKind.DeepSeek -> deepSeekKey
             KeyKind.Gemini -> geminiKey
-            KeyKind.Picovoice -> picovoiceKey
         }
         ApiKeyDialog(
             title = when (kind) {
-                KeyKind.DeepSeek -> "DeepSeek API key"
                 KeyKind.Gemini -> "Gemini API key"
-                KeyKind.Picovoice -> "Picovoice key"
             },
             hint = when (kind) {
-                KeyKind.DeepSeek ->
-                    "This is what lets Tarzi hold a conversation and decide which " +
-                        "actions to take. Get one at platform.deepseek.com."
                 KeyKind.Gemini ->
-                    "Optional. Adds image understanding so Tarzi can answer questions " +
-                        "about what is on your screen."
-                KeyKind.Picovoice ->
-                    "Optional. Enables the on-device wake word from console.picovoice.ai."
+                    "Optional. Sends uncertain pages to Gemini for a second opinion " +
+                        "when the on-device classifier is not sure."
             },
             initial = current,
             onDismiss = { showKeyDialog = null },
@@ -332,17 +267,9 @@ fun TarziControlScreen(
                 val trimmed = value.trim()
                 scope.launch {
                     when (kind) {
-                        KeyKind.DeepSeek -> {
-                            securityManager.configRepository.set("deepseek_api_key", trimmed)
-                            deepSeekKey = trimmed
-                        }
                         KeyKind.Gemini -> {
                             securityManager.configRepository.set("gemini_api_key", trimmed)
                             geminiKey = trimmed
-                        }
-                        KeyKind.Picovoice -> {
-                            securityManager.configRepository.set("picovoice_access_key", trimmed)
-                            picovoiceKey = trimmed
                         }
                     }
                 }
@@ -410,7 +337,7 @@ fun TarziControlScreen(
     }
 }
 
-private enum class KeyKind { DeepSeek, Gemini, Picovoice }
+private enum class KeyKind { Gemini }
 
 // ============================================================================
 

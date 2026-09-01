@@ -34,9 +34,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.ui.platform.LocalContext
 import com.antigravity.shieldx.core.security.SecurityManager
-import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.admin.DeviceOwnerSetupScreen
 import com.antigravity.shieldx.ui.assistant.TarziControlScreen
 import com.antigravity.shieldx.ui.blocked.BlockedEventsScreen
@@ -85,8 +83,6 @@ fun TarziApp(securityManager: SecurityManager) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    val context = LocalContext.current
-
     // The bar is for top-level destinations only; a detail screen keeps the
     // bar visible but shows nothing selected rather than hiding it and making
     // the layout jump.
@@ -111,9 +107,8 @@ fun TarziApp(securityManager: SecurityManager) {
                 composable(Screen.Home.route) {
                     HomeScreen(
                         securityManager = securityManager,
-                        onOpenAssistant = { CompanionApp.Assistant.launch(context) },
-                        onOpenMusic = { CompanionApp.Music.launch(context) },
-                        onNavigateToProtection = { navController.navigateTop(Screen.Protection.route) }
+                        onNavigateToProtection = { navController.navigateTop(Screen.Protection.route) },
+                        onNavigateToLogs = { navController.navigate(Screen.BlockedLogs.route) }
                     )
                 }
 

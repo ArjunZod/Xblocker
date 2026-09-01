@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.ProtectionProfile
 import com.antigravity.shieldx.core.security.SecurityManager
-import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import com.antigravity.shieldx.vpn.ProtectionVpnService
@@ -50,9 +49,8 @@ import java.util.Calendar
 @Composable
 fun HomeScreen(
     securityManager: SecurityManager,
-    onOpenAssistant: () -> Unit,
-    onOpenMusic: () -> Unit,
-    onNavigateToProtection: () -> Unit
+    onNavigateToProtection: () -> Unit,
+    onNavigateToLogs: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -60,8 +58,6 @@ fun HomeScreen(
     val isVpnRunning by ProtectionVpnService.isRunningFlow.collectAsState()
     val policy by securityManager.policyRepository.currentPolicyFlow.collectAsState(initial = null)
     val isProtected = policy?.isEnabled == true && isVpnRunning
-    val musicInstalled = remember { CompanionApp.Music.isInstalled(context) }
-    val assistantInstalled = remember { CompanionApp.Assistant.isInstalled(context) }
 
     val vpnConsent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -99,147 +95,58 @@ fun HomeScreen(
             item {
                 ScreenHeader(
                     title = greeting(),
-                    subtitle = "How can I help you today?"
+                    subtitle = null
                 )
             }
 
             // 1. Primary AI Assistant Prompt Bar
             item {
                 Column(Modifier.padding(horizontal = Space.gutter)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(Radius.md)
-                            .background(Surface)
-                            .border(1.dp, Border, Radius.md)
-                            .clickable { onOpenAssistant() }
-                            .padding(Space.lg)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Ask TaRZI anything...",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = TextTertiary
-                                )
-                                Spacer(Modifier.height(Space.xs))
-                                Text(
-                                    text = "Tap to chat or use live voice",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .background(Accent)
-                                    .clickable { onOpenAssistant() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = "Start Live Voice",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = if (isProtected) "Filtering is on" else "Filtering is off",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = TextPrimary
+                    )
+                    Spacer(Modifier.height(Space.xs))
+                    Text(
+                        text = if (isProtected) {
+                            "Adult content is filtered across your browsers and apps."
+                        } else {
+                            "Turn filtering on to block adult content device-wide."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.height(Space.lg))
+                    PrimaryButton(
+                        text = if (isProtected) "Turn off filtering" else "Turn on filtering",
+                        onClick = { toggleProtection() }
+                    )
                 }
             }
 
-            // 2. Intelligent Quick Actions & Suggestions
-            item {
-                SuggestionChipRow(
-                    suggestions = listOf(
-                        "Play relaxing jazz",
-                        "How much RAM is free?",
-                        "Check device protection",
-                        "Turn on flashlight",
-                        "Show stored memory"
-                    ),
-                    onSuggestionClick = { onOpenAssistant() }
-                )
-            }
-
-            // 3. Music and the assistant are separate apps now; hand off.
             item {
                 Column {
-                    SectionHeader(title = "Apps")
+                    SectionHeader(title = "Activity")
                     Grouped {
                         SettingRow(
-                            title = "TaRZI Music",
-                            description = if (musicInstalled) {
-                                "Search and play music"
-                            } else {
-                                "Not installed on this device"
-                            },
-                            icon = Icons.Default.MusicNote,
-                            onClick = { onOpenMusic() }
-                        )
-                        RowDivider()
-                        SettingRow(
-                            title = "TaRZI Assistant",
-                            description = if (assistantInstalled) {
-                                "Voice and chat"
-                            } else {
-                                "Not installed on this device"
-                            },
-                            icon = Icons.Default.Mic,
-                            onClick = { onOpenAssistant() }
+                            title = "Blocked activity",
+                            description = "See what has been blocked and why",
+                            onClick = onNavigateToLogs
                         )
                     }
                 }
             }
 
             item {
-                Column(Modifier.padding(horizontal = Space.gutter)) {
-                    SectionHeader(title = "Device Protection", modifier = Modifier.padding(horizontal = 0.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(Radius.md)
-                            .background(Surface)
-                            .border(1.dp, Border, Radius.md)
-                            .clickable { onNavigateToProtection() }
-                            .padding(Space.lg),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                StatusChip(
-                                    text = if (isProtected) "Active Protection" else "Protection Off",
-                                    tone = if (isProtected) StatusTone.Positive else StatusTone.Caution
-                                )
-                            }
-                            Spacer(Modifier.height(Space.xs))
-                            Text(
-                                text = if (isProtected) "SafeSearch and content filtering are actively running." else "Tap to enable on-device content filtering.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = TextSecondary
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(Radius.sm)
-                                .background(if (isProtected) SurfaceRaised else Accent)
-                                .clickable { toggleProtection() }
-                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = if (isProtected) "Turn Off" else "Enable",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isProtected) TextSecondary else Color.White
-                            )
-                        }
+                Column {
+                    SectionHeader(title = "Protection")
+                    Grouped {
+                        SettingRow(
+                            title = "Filtering settings",
+                            description = "SafeSearch, blocked domains and app rules",
+                            onClick = onNavigateToProtection
+                        )
                     }
                 }
             }

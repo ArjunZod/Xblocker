@@ -71,6 +71,8 @@ class ProtectionVpnService : VpnService() {
     private lateinit var domainRepository: DomainRepository
     private lateinit var policyRepository: PolicyRepository
     private lateinit var auditRepository: AuditRepository
+    private lateinit var blockRecorder: BlockEventRecorder
+    private lateinit var privateDnsGuard: PrivateDnsGuard
     private lateinit var domainMatcher: DomainMatcher
     private lateinit var safeSearchEnforcer: SafeSearchEnforcer
     private lateinit var dnsFilter: DnsFilter
@@ -85,6 +87,11 @@ class ProtectionVpnService : VpnService() {
         domainRepository = DomainRepository(this, database)
         policyRepository = PolicyRepository(database)
         auditRepository = AuditRepository(database)
+        blockRecorder = BlockEventRecorder(auditRepository, serviceScope)
+        privateDnsGuard = PrivateDnsGuard(
+            applicationContext,
+            com.antigravity.shieldx.device.DeviceOwnerController(applicationContext)
+        )
         domainMatcher = DomainMatcher()
         safeSearchEnforcer = SafeSearchEnforcer()
         dnsFilter = DnsFilter(domainMatcher, safeSearchEnforcer)
@@ -177,6 +184,24 @@ class ProtectionVpnService : VpnService() {
                 }
 
                 isRunning.set(true)
+                blockRecorder.start()
+
+                // A strict Private DNS host sends every lookup over DoT to a
+                // resolver we never see, which would quietly defeat the filter.
+                // Correct it where we are allowed to; where we are not, record
+                // it so the state is visible instead of silently wrong.
+                val dnsStatus = privateDnsGuard.status()
+                if (dnsStatus.isBypassingFilter) {
+                    val corrected = privateDnsGuard.enforceFilterableDns()
+                    if (!corrected) {
+                        auditRepository.logTamperEvent(
+                            "PRIVATE_DNS_BYPASS",
+                            "HIGH",
+                            privateDnsGuard.describe(),
+                            com.antigravity.shieldx.core.model.TamperState.SUSPICIOUS
+                        )
+                    }
+                }
                 _isRunningFlow.value = true
                 healthMonitor.start()
 
@@ -214,15 +239,12 @@ class ProtectionVpnService : VpnService() {
                     // or DoT attempt then fails and it falls back to system DNS,
                     // which is the traffic this loop can actually inspect.
                     if (EncryptedDnsBlocker.shouldDrop(parsed.destIp, parsed.destPort, parsed.protocol)) {
-                        launch {
-                            auditRepository.logBlockedEvent(
-                                target = parsed.destIp.joinToString(".") { (it.toInt() and 0xFF).toString() },
-                                category = Category.OTHER_EXPLICIT,
-                                reason = BlockReason.SAFESEARCH_ENFORCEMENT,
-                                deviceMode = DeviceMode.NORMAL_CONSUMER,
-                                details = "Encrypted DNS bypass blocked (port " + parsed.destPort + ")"
-                            )
-                        }
+                        blockRecorder.record(
+                            target = parsed.destIp.joinToString(".") { (it.toInt() and 0xFF).toString() },
+                            category = Category.OTHER_EXPLICIT,
+                            reason = BlockReason.SAFESEARCH_ENFORCEMENT,
+                            detail = "Encrypted DNS bypass blocked (port " + parsed.destPort + ")"
+                        )
                         continue
                     }
 
@@ -235,16 +257,12 @@ class ProtectionVpnService : VpnService() {
 
                             when (evalResult.action) {
                                 PolicyDecision.BLOCK -> {
-                                    // Log blocked event asynchronously
-                                    launch {
-                                        auditRepository.logBlockedEvent(
-                                            target = dnsQuery.qName,
-                                            category = evalResult.category,
-                                            reason = evalResult.reason ?: BlockReason.KNOWN_ADULT_DOMAIN,
-                                            deviceMode = DeviceMode.NORMAL_CONSUMER,
-                                            details = "DNS query blocked and sinkholed"
-                                        )
-                                    }
+                                    blockRecorder.record(
+                                        target = dnsQuery.qName,
+                                        category = evalResult.category,
+                                        reason = evalResult.reason ?: BlockReason.KNOWN_ADULT_DOMAIN,
+                                        detail = "DNS query blocked and sinkholed"
+                                    )
                                     // Synthesize sinkhole response
                                     val responseIpPacket = dnsFilter.wrapIpUdp(
                                         srcIp = parsed.destIp,

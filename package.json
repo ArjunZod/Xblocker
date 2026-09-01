@@ -1,0 +1,25 @@
+{
+  "name": "tarzi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "React Native UI layer for the TaRZI apps. The Android platform work (VPN filtering, accessibility control, Media3 playback, screen capture, device admin) stays in Kotlin and is exposed to JS through native modules.",
+  "scripts": {
+    "start": "react-native start",
+    "music": "react-native start --entry-file index.music.js"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-native": "0.76.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@babel/preset-env": "^7.25.0",
+    "@babel/runtime": "^7.25.0",
+    "@react-native/babel-preset": "0.76.5",
+    "@react-native/metro-config": "0.76.5",
+    "@react-native/gradle-plugin": "0.76.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
