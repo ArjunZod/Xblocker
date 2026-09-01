@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="agent_app_name">TaRZI Assistant</string>
+
+    <!-- Shown by the system on the accessibility service's settings entry. -->
+    <string name="tarzi_accessibility_summary">Lets Tarzi see and control your screen in any app</string>
+    <string name="tarzi_accessibility_description">Tarzi needs screen access so it can act on your voice commands anywhere on the device — opening a video in YouTube, scrolling a page, or reading what is on screen. Tarzi only reads the screen when you ask it to do something, and never uploads screen contents unless you turn on Live Mode.</string>
+</resources>

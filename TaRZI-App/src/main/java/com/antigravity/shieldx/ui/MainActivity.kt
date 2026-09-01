@@ -34,18 +34,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.platform.LocalContext
 import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.admin.DeviceOwnerSetupScreen
-import com.antigravity.shieldx.ui.assistant.AssistantChatScreen
 import com.antigravity.shieldx.ui.assistant.TarziControlScreen
-import com.antigravity.shieldx.ui.automation.AutomationListScreen
 import com.antigravity.shieldx.ui.blocked.BlockedEventsScreen
 import com.antigravity.shieldx.ui.dashboard.DashboardScreen
 import com.antigravity.shieldx.ui.diagnostics.DiagnosticsScreen
 import com.antigravity.shieldx.ui.home.HomeScreen
-import com.antigravity.shieldx.ui.music.NowPlayingScreen
-import com.antigravity.shieldx.ui.music.MiniPlayerBar
-import com.antigravity.shieldx.ui.music.MusicHomeScreen
 import com.antigravity.shieldx.ui.navigation.Screen
 import com.antigravity.shieldx.ui.policies.AppPoliciesScreen
 import com.antigravity.shieldx.ui.policies.PolicyScreen
@@ -78,7 +75,6 @@ private data class Destination(
 
 private val destinations = listOf(
     Destination(Screen.Home, "Home", Icons.Filled.Home, Icons.Outlined.Home),
-    Destination(Screen.Music, "Music", Icons.Filled.MusicNote, Icons.Outlined.MusicNote),
     Destination(Screen.Protection, "Protection", Icons.Filled.Shield, Icons.Outlined.Shield),
     Destination(Screen.TarziControl, "Settings", Icons.Filled.Settings, Icons.Outlined.Settings)
 )
@@ -89,29 +85,18 @@ fun TarziApp(securityManager: SecurityManager) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    val playbackState by securityManager.musicController.playbackStateFlow.collectAsState()
-    var showFullPlayer by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // The bar is for top-level destinations only; a detail screen keeps the
     // bar visible but shows nothing selected rather than hiding it and making
     // the layout jump.
-    val showBottomBar = destinations.any { it.screen.route == currentRoute } ||
-        currentRoute == Screen.Assistant.route
+    val showBottomBar = destinations.any { it.screen.route == currentRoute }
 
     Scaffold(
         containerColor = Canvas,
         bottomBar = {
             if (showBottomBar) {
-                Column {
-                    if (playbackState.currentTrack != null) {
-                        MiniPlayerBar(
-                            playbackState = playbackState,
-                            musicGraph = securityManager.musicGraph,
-                            onExpandClick = { showFullPlayer = true }
-                        )
-                    }
-                    BottomBar(navController = navController, currentRoute = currentRoute)
-                }
+                BottomBar(navController = navController, currentRoute = currentRoute)
             }
         }
     ) { padding ->
@@ -126,24 +111,9 @@ fun TarziApp(securityManager: SecurityManager) {
                 composable(Screen.Home.route) {
                     HomeScreen(
                         securityManager = securityManager,
-                        onNavigateToAssistant = { navController.navigate(Screen.Assistant.route) },
-                        onNavigateToMusic = { navController.navigateTop(Screen.Music.route) },
+                        onOpenAssistant = { CompanionApp.Assistant.launch(context) },
+                        onOpenMusic = { CompanionApp.Music.launch(context) },
                         onNavigateToProtection = { navController.navigateTop(Screen.Protection.route) }
-                    )
-                }
-
-                composable(Screen.Assistant.route) {
-                    AssistantChatScreen(
-                        agent = securityManager.agentGraph,
-                        onNavigateToMusic = { navController.navigateTop(Screen.Music.route) },
-                        onNavigateToProtection = { navController.navigateTop(Screen.Protection.route) }
-                    )
-                }
-
-                composable(Screen.Music.route) {
-                    MusicHomeScreen(
-                        musicGraph = securityManager.musicGraph,
-                        onOpenFullPlayer = { showFullPlayer = true }
                     )
                 }
 
@@ -159,19 +129,12 @@ fun TarziApp(securityManager: SecurityManager) {
                 composable(Screen.TarziControl.route) {
                     TarziControlScreen(
                         securityManager = securityManager,
-                        onNavigateToAutomations = { navController.navigate(Screen.Automations.route) },
                         onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) },
                         onNavigateToApps = { navController.navigate(Screen.Apps.route) }
                     )
                 }
 
                 // Detail screens, reached from a row rather than the bar.
-                composable(Screen.Automations.route) {
-                    AutomationListScreen(
-                        securityManager = securityManager,
-                        onBack = { navController.popBackStack() }
-                    )
-                }
                 composable(Screen.Policies.route) {
                     PolicyScreen(
                         securityManager = securityManager,
@@ -202,14 +165,6 @@ fun TarziApp(securityManager: SecurityManager) {
                         onBack = { navController.popBackStack() }
                     )
                 }
-            }
-
-            if (showFullPlayer) {
-                NowPlayingScreen(
-                    playbackState = playbackState,
-                    musicGraph = securityManager.musicGraph,
-                    onDismiss = { showFullPlayer = false }
-                )
             }
         }
     }

@@ -8,8 +8,6 @@ import com.antigravity.shieldx.core.model.TamperState
 import com.antigravity.shieldx.data.local.AppDatabase
 import com.antigravity.shieldx.data.repository.AppPolicyRepository
 import com.antigravity.shieldx.data.repository.AuditRepository
-import com.antigravity.shieldx.assistant.system.TarziOverlayService
-import com.antigravity.shieldx.assistant.system.TarziVoiceService
 import com.antigravity.shieldx.data.repository.ConfigRepository
 import com.antigravity.shieldx.data.repository.DomainRepository
 import com.antigravity.shieldx.device.DeviceOwnerController
@@ -46,14 +44,9 @@ class PackageChangeReceiver : BroadcastReceiver() {
                         restrictionController.applyManagedRestrictions()
                     }
 
-                    // Bring Tarzi back if the user had the assistant switched on.
-                    // An always-on assistant that dies at reboot is not always-on.
-                    if (configRepo.get("tarzi_voice_enabled") == "true") {
-                        TarziVoiceService.start(context)
-                        if (android.provider.Settings.canDrawOverlays(context)) {
-                            TarziOverlayService.show(context)
-                        }
-                    }
+                    // The assistant is its own app now and restores its own
+                    // always-on services at boot; this receiver only restores
+                    // protection.
 
                     auditRepo.logTamperEvent(
                         "SYSTEM_BOOT_RESTORE",

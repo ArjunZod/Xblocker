@@ -82,8 +82,6 @@ android {
 dependencies {
     implementation(project(":contracts"))
     implementation(project(":ui-kit"))
-    implementation(project(":music"))
-    implementation(project(":ai-agent"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

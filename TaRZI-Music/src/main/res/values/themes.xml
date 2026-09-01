@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Only the window shell. Everything inside is Compose, drawing from
+        :ui-kit's TarziTheme, so this just has to avoid a white flash on launch.
+    -->
+    <style name="Theme.TaRZIMusic" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/tarzi_canvas</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

@@ -33,12 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.antigravity.shieldx.assistant.system.ScreenVisionService
-import com.antigravity.shieldx.assistant.system.TarziAccessibilityService
-import com.antigravity.shieldx.assistant.system.TarziOverlayService
-import com.antigravity.shieldx.assistant.system.TarziState
-import com.antigravity.shieldx.assistant.system.TarziVoiceService
 import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import kotlinx.coroutines.launch
@@ -76,15 +72,12 @@ fun TarziControlScreen(
             context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
         } else true
     }
-    val hasScreenControl = remember(refresh) { TarziAccessibilityService.isEnabled(context) }
     val hasOverlay = remember(refresh) { Settings.canDrawOverlays(context) }
     val ignoresBattery = remember(refresh) { context.ignoresBatteryOptimization() }
     val hasContacts = remember(refresh) { context.hasPermission(Manifest.permission.READ_CONTACTS) }
     val hasPhone = remember(refresh) { context.hasPermission(Manifest.permission.CALL_PHONE) }
 
-    val voiceState by TarziVoiceService.stateFlow.collectAsState()
-    val isSharingScreen by ScreenVisionService.isCapturingFlow.collectAsState()
-    val isAssistantOn = voiceState != TarziState.OFFLINE
+    val assistantInstalled = remember(refresh) { CompanionApp.Assistant.isInstalled(context) }
 
     var hasAdminPin by remember(refresh) {
         mutableStateOf(securityManager.adminRecoveryController.isPinSet())
@@ -113,36 +106,9 @@ fun TarziControlScreen(
         picovoiceKey = securityManager.configRepository.get("picovoice_access_key").orEmpty()
     }
 
-    LaunchedEffect(deepSeekKey, geminiKey) {
-        aiStatus = when {
-            deepSeekKey.isNotBlank() ->
-                com.antigravity.shieldx.assistant.ai.DeepSeekAiService(
-                    getApiKey = { deepSeekKey },
-                    getModel = { securityManager.configRepository.get("deepseek_model") }
-                ).verifyCredentials()
-
-            geminiKey.isNotBlank() ->
-                com.antigravity.shieldx.assistant.ai.GeminiAiService(
-                    getApiKey = { geminiKey },
-                    getModel = { securityManager.configRepository.get("gemini_model") }
-                ).verifyCredentials()
-
-            else -> null
-        }
-    }
-
     val permissions = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { refresh++ }
-
-    val screenCapture = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val data = result.data
-        if (result.resultCode == android.app.Activity.RESULT_OK && data != null) {
-            ScreenVisionService.startWithConsent(context, result.resultCode, data)
-        }
-    }
 
     LazyColumn(
         modifier = Modifier
@@ -158,41 +124,14 @@ fun TarziControlScreen(
         item { SectionHeader("Assistant") }
         item {
             Grouped {
-                SwitchRow(
-                    title = "Always-on assistant",
-                    description = if (isAssistantOn) {
-                        "Listening for \"Tarzi\" in the background"
+                SettingRow(
+                    title = "TaRZI Assistant",
+                    description = if (assistantInstalled) {
+                        "Voice, screen control and automations live in the assistant app"
                     } else {
-                        "Say \"Tarzi\" anywhere to start a command"
+                        "Not installed on this device"
                     },
-                    checked = isAssistantOn,
-                    enabled = hasMic,
-                    onCheckedChange = { on ->
-                        if (on) {
-                            TarziVoiceService.start(context)
-                            if (hasOverlay) TarziOverlayService.show(context)
-                        } else {
-                            TarziVoiceService.stop(context)
-                            TarziOverlayService.hide(context)
-                        }
-                        scope.launch {
-                            securityManager.configRepository
-                                .set("tarzi_voice_enabled", on.toString())
-                        }
-                    }
-                )
-                RowDivider()
-                SwitchRow(
-                    title = "Screen sharing",
-                    description = "Let Tarzi see your screen to answer visual questions",
-                    checked = isSharingScreen,
-                    onCheckedChange = { on ->
-                        if (on) {
-                            screenCapture.launch(ScreenVisionService.buildPermissionIntent(context))
-                        } else {
-                            ScreenVisionService.stop(context)
-                        }
-                    }
+                    onClick = { CompanionApp.Assistant.launch(context) }
                 )
             }
         }
@@ -212,17 +151,6 @@ fun TarziControlScreen(
                         wanted += Manifest.permission.POST_NOTIFICATIONS
                     }
                     permissions.launch(wanted.toTypedArray())
-                }
-                RowDivider()
-                PermissionRow(
-                    title = "Screen control",
-                    description = "Lets Tarzi act inside other apps",
-                    granted = hasScreenControl
-                ) {
-                    context.startActivity(
-                        Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
                 }
                 RowDivider()
                 PermissionRow(

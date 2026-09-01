@@ -36,8 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.activity.compose.BackHandler
 import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.PlaybackCommand
 import com.antigravity.shieldx.core.model.PlaybackState
@@ -80,10 +79,13 @@ fun NowPlayingScreen(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
+    // Rendered as a full-screen overlay in the host activity's window rather
+    // than a Dialog. A dialog gets its own window, and that window does not
+    // reliably report the gesture-bar inset - which is what was clipping the
+    // transport controls off the bottom of the screen.
+    BackHandler(onBack = onDismiss)
+
+    Box(Modifier.fillMaxSize().background(Canvas)) {
         if (track == null) {
             Box(
                 Modifier
@@ -93,15 +95,18 @@ fun NowPlayingScreen(
             ) {
                 CircularProgressIndicator(color = Accent)
             }
-            return@Dialog
+            return
         }
         Column(
             Modifier
                 .fillMaxSize()
                 .background(Canvas)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(top = 28.dp, bottom = Space.md)
+                // One padding for every intrusion: status bar, gesture bar and
+                // display cutout. The old fixed 28dp top offset pushed the
+                // column past the bottom of a short screen, clipping the
+                // transport controls.
+                .safeDrawingPadding()
+                .padding(bottom = Space.sm)
         ) {
             // Header with Tab Bar --------------------------------------------
             Row(
@@ -241,10 +246,13 @@ fun NowPlayingScreen(
 
 @Composable
 private fun TrackView(track: Track) {
+    // The art fills the space it is given rather than sitting as a small square
+    // in the middle of it. A square capped to the screen width left a wide empty
+    // band above and below the image on a tall phone.
     Box(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = Space.xxl),
+            .padding(horizontal = Space.lg, vertical = Space.sm),
         contentAlignment = Alignment.Center
     ) {
         if (track.thumbnailUrl.isNotBlank()) {
@@ -253,16 +261,14 @@ private fun TrackView(track: Track) {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxHeight(0.76f)
-                    .aspectRatio(1f)
+                    .fillMaxSize()
                     .clip(Radius.md)
                     .background(SurfaceRaised)
             )
         } else {
             Box(
                 Modifier
-                    .fillMaxHeight(0.82f)
-                    .aspectRatio(1f)
+                    .fillMaxSize()
                     .clip(Radius.md)
                     .background(SurfaceRaised),
                 contentAlignment = Alignment.Center

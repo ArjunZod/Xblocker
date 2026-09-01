@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.antigravity.shieldx.core.model.*
 import com.antigravity.shieldx.data.local.dao.*
@@ -70,14 +71,10 @@ class Converters {
         ModelDecisionEntity::class,
         PolicyVersionEntity::class,
         ConfigurationEntity::class,
-        com.antigravity.shieldx.assistant.data.MemoryItemEntity::class,
-        com.antigravity.shieldx.assistant.data.AutomationEntity::class,
         AuditEventEntity::class,
-        UserPreferenceEntity::class,
-        com.antigravity.shieldx.assistant.data.NetworkProfileEntity::class,
-        com.antigravity.shieldx.music.PlayHistoryEntity::class
+        UserPreferenceEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -93,14 +90,27 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun modelDecisionDao(): ModelDecisionDao
     abstract fun policyVersionDao(): PolicyVersionDao
     abstract fun configurationDao(): ConfigurationDao
-    abstract fun memoryDao(): com.antigravity.shieldx.assistant.data.MemoryDao
-    abstract fun automationDao(): com.antigravity.shieldx.assistant.data.AutomationDao
     abstract fun auditEventDao(): AuditEventDao
     abstract fun userPreferenceDao(): UserPreferenceDao
-    abstract fun networkProfileDao(): com.antigravity.shieldx.assistant.data.NetworkProfileDao
-    abstract fun playHistoryDao(): com.antigravity.shieldx.music.PlayHistoryDao
 
     companion object {
+
+        /**
+         * Music and the assistant became separate apps, each owning its own
+         * database. Their tables are dropped here rather than left orphaned —
+         * and dropping them explicitly is what keeps this an ordinary
+         * migration, so protection policies, the blocklist, audit history and
+         * saved settings all survive the split.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS play_history")
+                db.execSQL("DROP TABLE IF EXISTS memory_items")
+                db.execSQL("DROP TABLE IF EXISTS automations")
+                db.execSQL("DROP TABLE IF EXISTS network_profiles")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -111,6 +121,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "tarzi_unified.db"
                 )
+                .addMigrations(MIGRATION_3_4)
                 .fallbackToDestructiveMigration()
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {

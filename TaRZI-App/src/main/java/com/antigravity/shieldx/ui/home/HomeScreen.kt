@@ -33,11 +33,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.antigravity.shieldx.assistant.voice.VoiceAssistantManager
-import com.antigravity.shieldx.core.model.PlaybackCommand
 import com.antigravity.shieldx.core.model.ProtectionProfile
 import com.antigravity.shieldx.core.security.SecurityManager
-import com.antigravity.shieldx.ui.assistant.VoiceModeScreen
+import com.antigravity.shieldx.core.util.CompanionApp
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import com.antigravity.shieldx.vpn.ProtectionVpnService
@@ -52,8 +50,8 @@ import java.util.Calendar
 @Composable
 fun HomeScreen(
     securityManager: SecurityManager,
-    onNavigateToAssistant: () -> Unit,
-    onNavigateToMusic: () -> Unit,
+    onOpenAssistant: () -> Unit,
+    onOpenMusic: () -> Unit,
     onNavigateToProtection: () -> Unit
 ) {
     val context = LocalContext.current
@@ -61,46 +59,9 @@ fun HomeScreen(
 
     val isVpnRunning by ProtectionVpnService.isRunningFlow.collectAsState()
     val policy by securityManager.policyRepository.currentPolicyFlow.collectAsState(initial = null)
-    val playback by securityManager.musicController.playbackStateFlow.collectAsState()
-    val recent by securityManager.playHistoryRepository.recentFlow
-        .collectAsState(initial = emptyList())
-
     val isProtected = policy?.isEnabled == true && isVpnRunning
-
-    var showVoiceMode by remember { mutableStateOf(false) }
-    var voiceManagerRef by remember { mutableStateOf<VoiceAssistantManager?>(null) }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            showVoiceMode = true
-        }
-    }
-
-    DisposableEffect(context) {
-        val vm = VoiceAssistantManager(
-            context = context,
-            musicController = securityManager.musicController,
-            onSpeechRecognized = {
-                // Navigate to assistant with speech
-                onNavigateToAssistant()
-            }
-        )
-        voiceManagerRef = vm
-        onDispose {
-            vm.destroy()
-        }
-    }
-
-    fun startVoiceMode() {
-        val vm = voiceManagerRef ?: return
-        if (!vm.hasRecordPermission()) {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        } else {
-            showVoiceMode = true
-        }
-    }
+    val musicInstalled = remember { CompanionApp.Music.isInstalled(context) }
+    val assistantInstalled = remember { CompanionApp.Assistant.isInstalled(context) }
 
     val vpnConsent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -151,7 +112,7 @@ fun HomeScreen(
                             .clip(Radius.md)
                             .background(Surface)
                             .border(1.dp, Border, Radius.md)
-                            .clickable { onNavigateToAssistant() }
+                            .clickable { onOpenAssistant() }
                             .padding(Space.lg)
                     ) {
                         Row(
@@ -178,7 +139,7 @@ fun HomeScreen(
                                     .size(48.dp)
                                     .clip(CircleShape)
                                     .background(Accent)
-                                    .clickable { startVoiceMode() },
+                                    .clickable { onOpenAssistant() },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -203,164 +164,40 @@ fun HomeScreen(
                         "Turn on flashlight",
                         "Show stored memory"
                     ),
-                    onSuggestionClick = { onNavigateToAssistant() }
+                    onSuggestionClick = { onOpenAssistant() }
                 )
             }
 
-            // 3. Current Playback Widget (if active)
-            playback.currentTrack?.let { track ->
-                item {
-                    Column(Modifier.padding(horizontal = Space.gutter)) {
-                        SectionHeader(title = "Now Playing", modifier = Modifier.padding(horizontal = 0.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(Radius.md)
-                                .background(Surface)
-                                .border(1.dp, Border, Radius.md)
-                                .clickable { onNavigateToMusic() }
-                                .padding(Space.md),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (!track.thumbnailUrl.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = track.thumbnailUrl,
-                                    contentDescription = track.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(Radius.sm)
-                                )
+            // 3. Music and the assistant are separate apps now; hand off.
+            item {
+                Column {
+                    SectionHeader(title = "Apps")
+                    Grouped {
+                        SettingRow(
+                            title = "TaRZI Music",
+                            description = if (musicInstalled) {
+                                "Search and play music"
                             } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(Radius.sm)
-                                        .background(SurfaceRaised),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.MusicNote,
-                                        contentDescription = null,
-                                        tint = TextSecondary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.width(Space.md))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = track.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = TextPrimary,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = track.artist,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary,
-                                    maxLines = 1
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(SurfaceRaised)
-                                    .clickable {
-                                        scope.launch {
-                                            if (playback.isPlaying) {
-                                                securityManager.musicController.pause()
-                                            } else {
-                                                securityManager.musicController.resume()
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (playback.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (playback.isPlaying) "Pause" else "Play",
-                                    tint = TextPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                        }
+                                "Not installed on this device"
+                            },
+                            icon = Icons.Default.MusicNote,
+                            onClick = { onOpenMusic() }
+                        )
+                        RowDivider()
+                        SettingRow(
+                            title = "TaRZI Assistant",
+                            description = if (assistantInstalled) {
+                                "Voice and chat"
+                            } else {
+                                "Not installed on this device"
+                            },
+                            icon = Icons.Default.Mic,
+                            onClick = { onOpenAssistant() }
+                        )
                     }
                 }
             }
 
-            // 4. Recently Played Music Row
-            if (recent.isNotEmpty()) {
-                item {
-                    Column {
-                        SectionHeader(title = "Recent Music")
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = Space.gutter),
-                            horizontalArrangement = Arrangement.spacedBy(Space.md)
-                        ) {
-                            items(recent.take(6), key = { it.trackId }) { entry ->
-                                Column(
-                                    modifier = Modifier
-                                        .width(110.dp)
-                                        .clickable {
-                                            scope.launch {
-                                                securityManager.musicController.play(
-                                                    PlaybackCommand.PlayTrack(entry.toTrack())
-                                                )
-                                                onNavigateToMusic()
-                                            }
-                                        }
-                                ) {
-                                    if (!entry.thumbnailUrl.isNullOrBlank()) {
-                                        AsyncImage(
-                                            model = entry.thumbnailUrl,
-                                            contentDescription = entry.title,
-                                            contentScale = ContentScale.Crop,
-                                            modifier = Modifier
-                                                .size(110.dp)
-                                                .clip(Radius.md)
-                                        )
-                                    } else {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(110.dp)
-                                                .clip(Radius.md)
-                                                .background(SurfaceRaised),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.MusicNote,
-                                                contentDescription = null,
-                                                tint = TextSecondary,
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(Space.xs))
-                                    Text(
-                                        text = entry.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = TextPrimary,
-                                        maxLines = 1
-                                    )
-                                    Text(
-                                        text = entry.artist,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 5. Protection Status Glance
             item {
                 Column(Modifier.padding(horizontal = Space.gutter)) {
                     SectionHeader(title = "Device Protection", modifier = Modifier.padding(horizontal = 0.dp))
@@ -408,21 +245,6 @@ fun HomeScreen(
             }
         }
 
-        // Live Voice Dialog
-        if (showVoiceMode) {
-            voiceManagerRef?.let { vm ->
-                VoiceModeScreen(
-                    voiceManager = vm,
-                    lastReply = "",
-                    isThinking = false,
-                    onClose = { showVoiceMode = false },
-                    onSwitchToKeyboard = {
-                        showVoiceMode = false
-                        onNavigateToAssistant()
-                    }
-                )
-            }
-        }
     }
 }
 
