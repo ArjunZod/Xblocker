@@ -80,6 +80,9 @@ android {
 }
 
 dependencies {
+    implementation(project(":contracts"))
+    implementation(project(":ui-kit"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

@@ -23,3 +23,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "ShieldX"
 include(":app")
+include(":contracts")
+include(":ui-kit")
