@@ -1,0 +1,551 @@
+{
+  "version": 2,
+  "policies": [
+    {
+      "packageName": "com.android.chrome",
+      "appLabel": "Google Chrome",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "org.mozilla.firefox",
+      "appLabel": "Firefox",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "org.mozilla.firefox_beta",
+      "appLabel": "Firefox Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "org.mozilla.fenix",
+      "appLabel": "Firefox Nightly",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "org.mozilla.focus",
+      "appLabel": "Firefox Focus",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Privacy browser with tracking protection"
+    },
+    {
+      "packageName": "com.brave.browser",
+      "appLabel": "Brave Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.brave.browser_beta",
+      "appLabel": "Brave Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.brave.browser_nightly",
+      "appLabel": "Brave Nightly",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.microsoft.emmx",
+      "appLabel": "Microsoft Edge",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.microsoft.emmx.beta",
+      "appLabel": "Microsoft Edge Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.microsoft.emmx.canary",
+      "appLabel": "Microsoft Edge Canary",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.microsoft.emmx.dev",
+      "appLabel": "Microsoft Edge Dev",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.opera.browser",
+      "appLabel": "Opera Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.opera.browser.beta",
+      "appLabel": "Opera Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.opera.mini.native",
+      "appLabel": "Opera Mini",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.opera.gx.gaming",
+      "appLabel": "Opera GX",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.sec.android.app.sbrowser",
+      "appLabel": "Samsung Internet",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.sec.android.app.sbrowser.beta",
+      "appLabel": "Samsung Internet Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.vivaldi.browser",
+      "appLabel": "Vivaldi",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.vivaldi.browser.snapshot",
+      "appLabel": "Vivaldi Snapshot",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.kiwibrowser.browser",
+      "appLabel": "Kiwi Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Chromium fork with extension support"
+    },
+    {
+      "packageName": "mark.via.gp",
+      "appLabel": "Via Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Lightweight browser"
+    },
+    {
+      "packageName": "com.yandex.browser",
+      "appLabel": "Yandex Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.UCMobile.intl",
+      "appLabel": "UC Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "org.nicta.nicbrowser",
+      "appLabel": "Nickel Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.mi.globalbrowser",
+      "appLabel": "Mi Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Xiaomi default browser"
+    },
+    {
+      "packageName": "com.huawei.browser",
+      "appLabel": "Huawei Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Huawei default browser"
+    },
+    {
+      "packageName": "com.heytap.browser",
+      "appLabel": "OPPO Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "OPPO default browser"
+    },
+    {
+      "packageName": "com.vivo.browser",
+      "appLabel": "Vivo Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Vivo default browser"
+    },
+    {
+      "packageName": "com.coloros.browser",
+      "appLabel": "Realme Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Realme/ColorOS browser"
+    },
+    {
+      "packageName": "org.lineageos.jelly",
+      "appLabel": "Jelly Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "LineageOS default browser"
+    },
+    {
+      "packageName": "com.browser2345",
+      "appLabel": "2345 Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Chinese browser"
+    },
+    {
+      "packageName": "com.aspect.browser",
+      "appLabel": "Aspect Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "acr.browser.lightning",
+      "appLabel": "Lightning Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Lightweight browser"
+    },
+    {
+      "packageName": "com.phlox.tvwebbrowser",
+      "appLabel": "TV Bro",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "TV browser"
+    },
+    {
+      "packageName": "org.chromium.chrome",
+      "appLabel": "Chromium",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Open source browser"
+    },
+    {
+      "packageName": "org.ungoogled.nickel",
+      "appLabel": "Ungoogled Chromium",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "De-googled Chromium fork"
+    },
+    {
+      "packageName": "org.torproject.torbrowser",
+      "appLabel": "Tor Browser",
+      "category": "BROWSER",
+      "policy": "BLOCKED",
+      "reason": "Anonymizing browser that bypasses local VPN DNS inspection"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser",
+      "appLabel": "Nickel Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "org.bromite.bromite",
+      "appLabel": "Bromite",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Privacy-focused Chromium fork"
+    },
+    {
+      "packageName": "us.nicta.nicbrowser",
+      "appLabel": "Nickel Browser (alt)",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.aspect.browser.pro",
+      "appLabel": "Aspect Browser Pro",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.phlox.tvwebbrowser",
+      "appLabel": "TV Bro Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "TV web browser"
+    },
+    {
+      "packageName": "com.stoutner.privacybrowser.free",
+      "appLabel": "Privacy Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Privacy browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.pro",
+      "appLabel": "Nickel Pro",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.beta",
+      "appLabel": "Nickel Beta",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.nightly",
+      "appLabel": "Nickel Nightly",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.dev",
+      "appLabel": "Nickel Dev",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.canary",
+      "appLabel": "Nickel Canary",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.snapshot",
+      "appLabel": "Nickel Snapshot",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.stable",
+      "appLabel": "Nickel Stable",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.release",
+      "appLabel": "Nickel Release",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.lite",
+      "appLabel": "Nickel Lite",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.nicta.nicbrowser.mini",
+      "appLabel": "Nickel Mini",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Third-party browser"
+    },
+    {
+      "packageName": "com.duckduckgo.mobile.android",
+      "appLabel": "DuckDuckGo Privacy Browser",
+      "category": "BROWSER",
+      "policy": "RESTRICTED",
+      "reason": "Monitored browser for adult content filtering"
+    },
+    {
+      "packageName": "com.twitter.android",
+      "appLabel": "X (Twitter)",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with NSFW content settings"
+    },
+    {
+      "packageName": "com.instagram.android",
+      "appLabel": "Instagram",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with adult content risk"
+    },
+    {
+      "packageName": "com.reddit.frontpage",
+      "appLabel": "Reddit",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with NSFW subreddits"
+    },
+    {
+      "packageName": "com.snapchat.android",
+      "appLabel": "Snapchat",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with disappearing explicit content risk"
+    },
+    {
+      "packageName": "com.zhiliaoapp.musically",
+      "appLabel": "TikTok",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with adult content in search"
+    },
+    {
+      "packageName": "com.ss.android.ugc.trill",
+      "appLabel": "TikTok (alt)",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with adult content in search"
+    },
+    {
+      "packageName": "com.tumblr",
+      "appLabel": "Tumblr",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Social media with adult content communities"
+    },
+    {
+      "packageName": "com.discord",
+      "appLabel": "Discord",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Messaging platform with NSFW channels"
+    },
+    {
+      "packageName": "org.telegram.messenger",
+      "appLabel": "Telegram",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Messaging platform with adult channels and bots"
+    },
+    {
+      "packageName": "org.telegram.messenger.web",
+      "appLabel": "Telegram (Web)",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Telegram web wrapper"
+    },
+    {
+      "packageName": "org.thunderdog.challegram",
+      "appLabel": "Telegram X",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Telegram alternative client"
+    },
+    {
+      "packageName": "com.pinterest",
+      "appLabel": "Pinterest",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Image sharing with adult content exposure"
+    },
+    {
+      "packageName": "com.tinder",
+      "appLabel": "Tinder",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app with adult content risk"
+    },
+    {
+      "packageName": "com.bumble.app",
+      "appLabel": "Bumble",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app"
+    },
+    {
+      "packageName": "com.grindr.android",
+      "appLabel": "Grindr",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app with adult content"
+    },
+    {
+      "packageName": "com.hinge.app",
+      "appLabel": "Hinge",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app"
+    },
+    {
+      "packageName": "com.okcupid.okcupid",
+      "appLabel": "OkCupid",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app"
+    },
+    {
+      "packageName": "com.badoo.mobile",
+      "appLabel": "Badoo",
+      "category": "DATING",
+      "policy": "RESTRICTED",
+      "reason": "Dating app with adult content risk"
+    },
+    {
+      "packageName": "com.kik.messenger",
+      "appLabel": "Kik Messenger",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Messaging app with adult group risk"
+    },
+    {
+      "packageName": "com.omegle.app",
+      "appLabel": "Omegle",
+      "category": "SOCIAL_MEDIA",
+      "policy": "BLOCKED",
+      "reason": "Anonymous video chat with explicit content"
+    },
+    {
+      "packageName": "com.whisper.android",
+      "appLabel": "Whisper",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Anonymous social app"
+    },
+    {
+      "packageName": "chat.rocket.android",
+      "appLabel": "Rocket.Chat",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Chat with unmoderated channels"
+    },
+    {
+      "packageName": "com.Slack",
+      "appLabel": "Slack",
+      "category": "SOCIAL_MEDIA",
+      "policy": "RESTRICTED",
+      "reason": "Workspace chat (can access adult content links)"
+    }
+  ]
+}

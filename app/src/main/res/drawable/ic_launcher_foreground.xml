@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A single geometric T.
+
+    The stem is cut short and the crossbar overhangs to the right, so the mark
+    reads as a deliberate letterform rather than a default font glyph. One shape,
+    one colour, generous clear space - it survives being shrunk to a home-screen
+    tile, masked to a circle, or tinted for themed icons.
+
+    Artwork sits inside the 66dp adaptive-icon safe zone (27..81).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Crossbar -->
+    <path
+        android:pathData="M33,36 h42 a4,4 0 0,1 4,4 v6 a4,4 0 0,1 -4,4 h-42 a4,4 0 0,1 -4,-4 v-6 a4,4 0 0,1 4,-4 z"
+        android:fillColor="#FFFFFF" />
+
+    <!-- Stem, offset left of centre so the crossbar overhangs on the right -->
+    <path
+        android:pathData="M45,50 h11 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-11 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 z"
+        android:fillColor="#FFFFFF" />
+</vector>

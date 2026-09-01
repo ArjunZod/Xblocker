@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tarzi</string>
+
+    <!-- Protection subsystem -->
+    <string name="vpn_service_title">Tarzi System Protection Active</string>
+    <string name="vpn_service_desc">Enforcing system-level adult content blocking and DNS filtering</string>
+    <string name="device_admin_label">Tarzi Device Protection</string>
+    <string name="device_admin_description">Enforces system-level adult content policy, prevents tampering, and manages VPN lockdown on managed devices.</string>
+    <string name="channel_vpn_name">Tarzi Protection Service</string>
+    <string name="channel_vpn_desc">Shows ongoing status of Tarzi system-level adult filtering</string>
+    <string name="channel_tamper_name">Tarzi Security Alerts</string>
+    <string name="channel_tamper_desc">Alerts when protection configuration is altered or tampered with</string>
+
+    <!-- Assistant subsystem -->
+    <string name="tarzi_accessibility_summary">Lets Tarzi see and control your screen in any app</string>
+    <string name="tarzi_accessibility_description">Tarzi needs screen access so it can act on your voice commands anywhere on the device — opening a video in YouTube, scrolling a page, or reading what is on screen. Tarzi only reads the screen when you ask it to do something, and never uploads screen contents unless you turn on Live Mode.</string>
+    <string name="channel_assistant_name">Tarzi Assistant</string>
+    <string name="channel_assistant_desc">Keeps Tarzi listening for its wake word</string>
+</resources>
