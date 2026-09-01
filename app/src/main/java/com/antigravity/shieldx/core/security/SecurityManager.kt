@@ -1,54 +1,21 @@
 package com.antigravity.shieldx.core.security
 
 import android.content.Context
-import com.antigravity.shieldx.assistant.automation.AutomationEngine
-import com.antigravity.shieldx.assistant.commands.CommandRegistry
-import com.antigravity.shieldx.assistant.commands.handlers.SystemControlTools
-import com.antigravity.shieldx.assistant.commands.handlers.ToolHandlers
-import com.antigravity.shieldx.assistant.executor.ConfirmationManager
-import com.antigravity.shieldx.assistant.executor.DeterministicExecutor
-import com.antigravity.shieldx.assistant.intent.IntentEngine
-import com.antigravity.shieldx.assistant.memory.ContextEngine
-import com.antigravity.shieldx.assistant.memory.MemoryManager
-import com.antigravity.shieldx.assistant.planning.AssistantPlanner
-import com.antigravity.shieldx.classifier.ClassificationManager
-import com.antigravity.shieldx.classifier.LocalContentClassifier
-import com.antigravity.shieldx.classifier.RuleClassifier
-import com.antigravity.shieldx.classifier.UrlClassifier
-import com.antigravity.shieldx.classifier.ai.AICostController
-import com.antigravity.shieldx.classifier.ai.AIResponseValidator
-import com.antigravity.shieldx.classifier.ai.GeminiClassifier
+import com.antigravity.shieldx.assistant.AgentGraph
 import com.antigravity.shieldx.core.runtime.EventBus
 import com.antigravity.shieldx.core.runtime.MusicController
 import com.antigravity.shieldx.core.runtime.ProtectionController
 import com.antigravity.shieldx.core.runtime.ServiceRegistry
 import com.antigravity.shieldx.data.local.AppDatabase
-import com.antigravity.shieldx.data.repository.AppPolicyRepository
-import com.antigravity.shieldx.data.repository.AuditRepository
-import com.antigravity.shieldx.data.repository.ConfigRepository
-import com.antigravity.shieldx.data.repository.DomainRepository
-import com.antigravity.shieldx.data.repository.PolicyRepository
-import com.antigravity.shieldx.device.AdminRecoveryController
-import com.antigravity.shieldx.device.DeviceOwnerController
-import com.antigravity.shieldx.device.LockdownController
-import com.antigravity.shieldx.device.RestrictionController
-import com.antigravity.shieldx.music.InnerTubeClient
-import com.antigravity.shieldx.music.LyricsService
-import com.antigravity.shieldx.music.MusicControllerImpl
-import com.antigravity.shieldx.policy.BlocklistManager
-import com.antigravity.shieldx.policy.PolicyEngine
-import com.antigravity.shieldx.policy.SafeSearchEnforcer
-import com.antigravity.shieldx.protection.controller.ProtectionControllerImpl
-import com.antigravity.shieldx.tamper.IntegrityMonitor
-import com.antigravity.shieldx.tamper.SecurityStateMachine
-import com.antigravity.shieldx.tamper.TamperMonitor
-import com.antigravity.shieldx.vpn.DomainMatcher
+import com.antigravity.shieldx.music.MusicGraph
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * Primary coordinator managing all TaRZI Super-App subsystems.
+ * App-wide composition root. Wires the three subsystem graphs together and
+ * exposes their pieces under the same property names screens/services already
+ * use, so this decomposition doesn't require touching call sites elsewhere.
  */
 class SecurityManager private constructor(context: Context) {
 
@@ -56,121 +23,72 @@ class SecurityManager private constructor(context: Context) {
     val database: AppDatabase = AppDatabase.getInstance(appContext)
     val eventBus: EventBus = EventBus()
 
-    // Data Repositories
-    val policyRepository = PolicyRepository(database)
-    val domainRepository = DomainRepository(appContext, database)
-    val appPolicyRepository = AppPolicyRepository(appContext, database)
-    val auditRepository = AuditRepository(database)
-    val configRepository = ConfigRepository(database)
-
-    // Protection Subsystem
-    val domainMatcher = DomainMatcher()
-    val safeSearchEnforcer = SafeSearchEnforcer()
-    val ruleClassifier = RuleClassifier()
-    val urlClassifier = UrlClassifier(ruleClassifier)
-    val localContentClassifier = LocalContentClassifier(ruleClassifier, urlClassifier)
-
-    val aiResponseValidator = AIResponseValidator()
-    val aiCostController = AICostController(database)
-    val geminiClassifier = GeminiClassifier(aiCostController, aiResponseValidator)
-
-    val classificationManager = ClassificationManager(
-        domainMatcher = domainMatcher,
-        ruleClassifier = ruleClassifier,
-        urlClassifier = urlClassifier,
-        localContentClassifier = localContentClassifier,
-        geminiClassifier = geminiClassifier,
-        policyRepository = policyRepository
-    )
-
-    val stateMachine = SecurityStateMachine(auditRepository)
-    val integrityMonitor = IntegrityMonitor()
-    val deviceOwnerController = DeviceOwnerController(appContext)
-    val restrictionController = RestrictionController(appContext, deviceOwnerController)
-    val adminRecoveryController = AdminRecoveryController(appContext)
-    val lockdownController = LockdownController(appContext)
-    val tamperMonitor = TamperMonitor(stateMachine, deviceOwnerController, integrityMonitor)
-
-    val policyEngine = PolicyEngine(policyRepository, domainRepository, auditRepository, stateMachine)
-    val blocklistManager = BlocklistManager(appContext, domainRepository)
-
-    val protectionController: ProtectionController = ProtectionControllerImpl(
+    private val protection = ProtectionGraph(appContext, database)
+    private val music = MusicGraph(appContext, protection.policyEngine, database)
+    private val agent = AgentGraph(
         context = appContext,
-        policyRepository = policyRepository,
-        deviceOwnerController = deviceOwnerController,
-        restrictionController = restrictionController,
-        lockdownController = lockdownController
-    )
-
-    // Music Subsystem
-    val innerTubeClient = InnerTubeClient()
-    val lavalinkNodeManager = com.antigravity.shieldx.music.LavalinkNodeManager()
-    val musicResolver = com.antigravity.shieldx.music.MusicIdentifierResolver(lavalinkNodeManager, innerTubeClient)
-    val musicSearchEngine = com.antigravity.shieldx.music.TaRziMusicSearchEngine(
-        listOf(
-            com.antigravity.shieldx.music.YouTubeMusicAdapter(innerTubeClient),
-            com.antigravity.shieldx.music.SpotifyCatalogAdapter(),
-            com.antigravity.shieldx.music.DeezerCatalogAdapter()
-        )
-    )
-    val playHistoryRepository = com.antigravity.shieldx.music.PlayHistoryRepository(
-        database.playHistoryDao()
-    )
-    val musicLibraryRepository = com.antigravity.shieldx.music.MusicLibraryRepository(
-        appContext,
-        playHistoryRepository
-    )
-    val lyricsService = LyricsService()
-    val musicController: MusicController = MusicControllerImpl(
-        context = appContext,
-        searchEngine = musicSearchEngine,
-        resolver = musicResolver,
-        lyricsService = lyricsService,
-        policyGate = policyEngine,
-        playHistoryRepository = playHistoryRepository,
-        libraryRepository = musicLibraryRepository
-    )
-
-    // Assistant Subsystem
-    var voiceAssistantManager: com.antigravity.shieldx.assistant.voice.VoiceAssistantManager? = null
-    val commandRegistry = CommandRegistry()
-    val confirmationManager = ConfirmationManager()
-    val intentEngine = IntentEngine()
-    val assistantPlanner = AssistantPlanner(intentEngine, commandRegistry)
-    val deterministicExecutor = DeterministicExecutor(
-        context = appContext,
-        commandRegistry = commandRegistry,
-        confirmationManager = confirmationManager,
         database = database,
-        eventBus = eventBus
+        eventBus = eventBus,
+        protectionController = protection.protectionController,
+        musicController = music.musicController
     )
 
-    // Memory & Automation
-    val memoryManager = MemoryManager(database)
-    val contextEngine = ContextEngine()
-    val automationEngine = AutomationEngine(database, deterministicExecutor)
+    // --- Protection subsystem (delegated to ProtectionGraph) ---
+    val policyRepository get() = protection.policyRepository
+    val domainRepository get() = protection.domainRepository
+    val appPolicyRepository get() = protection.appPolicyRepository
+    val auditRepository get() = protection.auditRepository
+    val configRepository get() = protection.configRepository
+    val domainMatcher get() = protection.domainMatcher
+    val safeSearchEnforcer get() = protection.safeSearchEnforcer
+    val ruleClassifier get() = protection.ruleClassifier
+    val urlClassifier get() = protection.urlClassifier
+    val localContentClassifier get() = protection.localContentClassifier
+    val aiResponseValidator get() = protection.aiResponseValidator
+    val aiCostController get() = protection.aiCostController
+    val geminiClassifier get() = protection.geminiClassifier
+    val classificationManager get() = protection.classificationManager
+    val stateMachine get() = protection.stateMachine
+    val integrityMonitor get() = protection.integrityMonitor
+    val deviceOwnerController get() = protection.deviceOwnerController
+    val restrictionController get() = protection.restrictionController
+    val adminRecoveryController get() = protection.adminRecoveryController
+    val lockdownController get() = protection.lockdownController
+    val tamperMonitor get() = protection.tamperMonitor
+    val policyEngine get() = protection.policyEngine
+    val blocklistManager get() = protection.blocklistManager
+    val protectionController: ProtectionController get() = protection.protectionController
 
-    val toolHandlers = ToolHandlers(
-        context = appContext,
-        commandRegistry = commandRegistry,
-        protectionController = protectionController,
-        musicController = musicController,
-        database = database
-    )
+    // --- Music subsystem (delegated to MusicGraph) ---
+    val innerTubeClient get() = music.innerTubeClient
+    val lavalinkNodeManager get() = music.lavalinkNodeManager
+    val musicResolver get() = music.musicResolver
+    val musicSearchEngine get() = music.musicSearchEngine
+    val playHistoryRepository get() = music.playHistoryRepository
+    val musicLibraryRepository get() = music.musicLibraryRepository
+    val lyricsService get() = music.lyricsService
+    val musicController: MusicController get() = music.musicController
 
-    /** Screen-control tools, backed by the accessibility service. */
-    val systemControlTools = SystemControlTools(
-        context = appContext,
-        commandRegistry = commandRegistry
-    )
+    // --- Assistant subsystem (delegated to AgentGraph) ---
+    var voiceAssistantManager: com.antigravity.shieldx.assistant.voice.VoiceAssistantManager? = null
+    val commandRegistry get() = agent.commandRegistry
+    val confirmationManager get() = agent.confirmationManager
+    val intentEngine get() = agent.intentEngine
+    val assistantPlanner get() = agent.assistantPlanner
+    val deterministicExecutor get() = agent.deterministicExecutor
+    val memoryManager get() = agent.memoryManager
+    val contextEngine get() = agent.contextEngine
+    val automationEngine get() = agent.automationEngine
+    val toolHandlers get() = agent.toolHandlers
+    val systemControlTools get() = agent.systemControlTools
 
     init {
         // Register in ServiceRegistry
         ServiceRegistry.register(ProtectionController::class.java, protectionController)
         ServiceRegistry.register(MusicController::class.java, musicController)
         ServiceRegistry.register(EventBus::class.java, eventBus)
-        ServiceRegistry.register(MemoryManager::class.java, memoryManager)
-        ServiceRegistry.register(AutomationEngine::class.java, automationEngine)
+        ServiceRegistry.register(com.antigravity.shieldx.assistant.memory.MemoryManager::class.java, memoryManager)
+        ServiceRegistry.register(com.antigravity.shieldx.assistant.automation.AutomationEngine::class.java, automationEngine)
 
         // Register tools across all 8 families
         toolHandlers.registerAll()
