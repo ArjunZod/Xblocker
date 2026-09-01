@@ -56,6 +56,14 @@ interface MusicController : TaRZIController {
 }
 
 /**
+ * Gate music playback checks against before playing explicit content, without
+ * :music needing to depend on :app's concrete PolicyEngine.
+ */
+interface ContentPolicyGate {
+    suspend fun isExplicitContentBlocked(): Boolean
+}
+
+/**
  * Typed EventBus for decoupled cross-subsystem messaging.
  */
 sealed class TaRZIEvent {

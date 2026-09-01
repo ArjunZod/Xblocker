@@ -14,6 +14,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.antigravity.shieldx.core.runtime.MusicController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,7 @@ sealed class VoiceState {
  */
 class VoiceAssistantManager(
     private val context: Context,
+    private val musicController: MusicController,
     private val onSpeechRecognized: (String) -> Unit
 ) : RecognitionListener, TextToSpeech.OnInitListener {
 
@@ -101,8 +103,7 @@ class VoiceAssistantManager(
     private fun setMusicDucking(duck: Boolean) {
         scope.launch {
             try {
-                com.antigravity.shieldx.core.security.SecurityManager.getInstance(context)
-                    .musicController.duck(duck)
+                musicController.duck(duck)
             } catch (_: Exception) {}
         }
     }

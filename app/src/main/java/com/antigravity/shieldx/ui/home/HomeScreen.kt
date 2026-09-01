@@ -81,6 +81,7 @@ fun HomeScreen(
     DisposableEffect(context) {
         val vm = VoiceAssistantManager(
             context = context,
+            musicController = securityManager.musicController,
             onSpeechRecognized = {
                 // Navigate to assistant with speech
                 onNavigateToAssistant()

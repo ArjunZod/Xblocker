@@ -22,7 +22,6 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.antigravity.shieldx.core.model.Track
-import com.antigravity.shieldx.ui.MainActivity
 
 class MusicPlaybackService : MediaSessionService() {
 
@@ -85,7 +84,7 @@ class MusicPlaybackService : MediaSessionService() {
         val sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            launchIntent(),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
@@ -120,12 +119,18 @@ class MusicPlaybackService : MediaSessionService() {
         }
     }
 
+    /**
+     * Own launcher activity, resolved generically so this service (owned by
+     * :music) never needs a compile-time reference to :app's MainActivity.
+     */
+    private fun launchIntent(): Intent =
+        packageManager.getLaunchIntentForPackage(packageName) ?: Intent()
+
     private fun buildNotification(title: String, subtitle: String): android.app.Notification {
-        val intent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
-            intent,
+            launchIntent(),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

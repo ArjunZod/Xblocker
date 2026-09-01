@@ -5,6 +5,7 @@ import com.antigravity.shieldx.core.model.BlockReason
 import com.antigravity.shieldx.core.model.Category
 import com.antigravity.shieldx.core.model.PolicyDecision
 import com.antigravity.shieldx.core.model.TamperState
+import com.antigravity.shieldx.core.runtime.ContentPolicyGate
 import com.antigravity.shieldx.data.local.entities.DomainRuleEntity
 import com.antigravity.shieldx.data.local.entities.PolicyVersionEntity
 import com.antigravity.shieldx.data.repository.AuditRepository
@@ -23,7 +24,10 @@ class PolicyEngine(
     private val domainRepository: DomainRepository,
     private val auditRepository: AuditRepository,
     private val stateMachine: SecurityStateMachine
-) {
+) : ContentPolicyGate {
+
+    override suspend fun isExplicitContentBlocked(): Boolean =
+        evaluateDomain("music.explicit.track").decision == PolicyDecision.BLOCK
 
     data class PolicyEvaluationResult(
         val decision: PolicyDecision,

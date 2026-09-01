@@ -152,6 +152,7 @@ fun AssistantChatScreen(
     DisposableEffect(context) {
         val vm = VoiceAssistantManager(
             context = context,
+            musicController = securityManager.musicController,
             onSpeechRecognized = { transcript ->
                 if (transcript.isNotBlank()) {
                     handleUserQuery(transcript)

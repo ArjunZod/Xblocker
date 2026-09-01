@@ -8,8 +8,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.antigravity.shieldx.core.model.*
+import com.antigravity.shieldx.core.runtime.ContentPolicyGate
 import com.antigravity.shieldx.core.runtime.MusicController
-import com.antigravity.shieldx.policy.PolicyEngine
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +29,7 @@ class MusicControllerImpl(
     private val searchEngine: TaRziMusicSearchEngine,
     private val resolver: MusicIdentifierResolver,
     private val lyricsService: LyricsService,
-    private val policyEngine: PolicyEngine,
+    private val policyGate: ContentPolicyGate,
     private val playHistoryRepository: PlayHistoryRepository? = null,
     private val libraryRepository: MusicLibraryRepository? = null
 ) : MusicController {
@@ -233,8 +233,7 @@ class MusicControllerImpl(
         // Apply explicit content protection policy
         val filteredTracks = tracks.filter { track ->
             if (track.isExplicit) {
-                val decision = policyEngine.evaluateDomain("music.explicit.track").decision
-                decision != PolicyDecision.BLOCK
+                !policyGate.isExplicitContentBlocked()
             } else true
         }
 

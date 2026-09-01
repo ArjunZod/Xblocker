@@ -24,8 +24,9 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.antigravity.shieldx.R
 import com.antigravity.shieldx.assistant.TarziBrain
+import com.antigravity.shieldx.core.runtime.MusicController
+import com.antigravity.shieldx.core.runtime.ServiceRegistry
 import com.antigravity.shieldx.core.security.SecurityManager
-import com.antigravity.shieldx.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -285,7 +286,7 @@ class TarziVoiceService : Service(), TextToSpeech.OnInitListener {
     private fun duckMusic(duck: Boolean) {
         scope.launch {
             try {
-                securityManager.musicController.duck(duck)
+                ServiceRegistry.getOrNull(MusicController::class.java)?.duck(duck)
             } catch (_: Exception) {}
         }
     }
@@ -376,7 +377,7 @@ class TarziVoiceService : Service(), TextToSpeech.OnInitListener {
         val openApp = PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            packageManager.getLaunchIntentForPackage(packageName) ?: Intent(),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 

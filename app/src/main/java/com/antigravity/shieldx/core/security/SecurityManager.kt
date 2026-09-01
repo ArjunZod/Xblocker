@@ -126,7 +126,7 @@ class SecurityManager private constructor(context: Context) {
         searchEngine = musicSearchEngine,
         resolver = musicResolver,
         lyricsService = lyricsService,
-        policyEngine = policyEngine,
+        policyGate = policyEngine,
         playHistoryRepository = playHistoryRepository,
         libraryRepository = musicLibraryRepository
     )
