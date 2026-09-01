@@ -21,10 +21,15 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ShieldX"
+rootProject.name = "TaRZI"
 include(":app")
 include(":contracts")
 include(":ui-kit")
 include(":music")
 include(":ai-agent")
-project(":ai-agent").projectDir = file("agent")
+
+// The three TaRZI projects live in their own top-level directories; the two
+// shared modules (:contracts, :ui-kit) keep conventional names.
+project(":app").projectDir = file("TaRZI-App")
+project(":music").projectDir = file("TaRZI-Music")
+project(":ai-agent").projectDir = file("TaRZI-AI-Agent")

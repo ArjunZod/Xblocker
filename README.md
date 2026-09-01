@@ -1,76 +1,104 @@
-# ShieldX — Android System-Level Adult Content Protection
+# TaRZI
 
-ShieldX is a production-grade Android security application designed to aggressively prevent access to pornography, sexually explicit websites, adult search results, adult streaming, cam services, NSFW media, and explicit applications across the entire device.
+An Android super-app combining three subsystems that were previously one
+tangled module:
 
----
-
-## Key Highlights
-
-- **Deterministic Security Authority**: 100% offline enforcement via a high-performance local VPN DNS/packet filtering engine and Device Owner policy controls.
-- **Two Deployment Modes**:
-  - **Normal Consumer Mode**: Local DNS filtering, SafeSearch, and local classification.
-  - **Locked Managed Device Mode (Device Owner / Android Enterprise)**: Authoritative DevicePolicyManager controls, Always-on VPN with fail-closed lockdown, uninstall prevention, VPN settings lockdown (`DISALLOW_CONFIG_VPN`), and app suspension.
-- **SafeSearch DNS VIP Enforcement**: Hardware/network-level SafeSearch VIP rewriting for Google, YouTube Restricted Mode, Bing, and DuckDuckGo.
-- **Advanced Obfuscation Defenses**: `TextNormalizer` strips Cyrillic homoglyphs, numeric leetspeak, repeated character padding, zero-width characters, and percent-encoded queries.
-- **Optional Gemini AI Layer**: Integrates Gemini 3.7 Flash strictly for uncertain content scoring with JSON schema validation, SHA-256 caching, rate limiting, and circuit breakers.
-- **Zero Privacy Leakage**: No user browsing history uploaded, zero explicit previews, and strict credential/URL query redaction.
-
----
-
-## Project Structure
-
-```
-w:\x blocker\
-├── app/
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── AndroidManifest.xml
-│   │   │   ├── res/ (device_admin.xml, network_security_config.xml, raw blocklists)
-│   │   │   └── java/com/antigravity/shieldx/
-│   │   │       ├── ShieldXApp.kt
-│   │   │       ├── core/ (model, security, logging, util)
-│   │   │       ├── data/ (Room database, entities, DAOs, repositories)
-│   │   │       ├── vpn/ (ProtectionVpnService, VpnPacketParser, DnsFilter, DomainMatcher, VpnHealthMonitor)
-│   │   │       ├── device/ (ShieldXDeviceAdminReceiver, DeviceOwnerController, RestrictionController, AdminRecoveryController)
-│   │   │       ├── apps/ (BrowserRegistry, AppScanner, AppPolicyEngine, PackageChangeReceiver)
-│   │   │       ├── classifier/ (RuleClassifier, UrlClassifier, LocalContentClassifier, GeminiClassifier)
-│   │   │       ├── tamper/ (TamperMonitor, IntegrityMonitor, SecurityStateMachine)
-│   │   │       ├── policy/ (PolicyEngine, SafeSearchEnforcer, BlocklistManager)
-│   │   │       └── ui/ (theme, navigation, dashboard, policies, blocked, diagnostics, admin)
-│   │   └── test/java/com/antigravity/shieldx/
-│   │       ├── core/ (TextNormalizerTest)
-│   │       ├── vpn/ (DomainMatcherTest, DnsFilterTest)
-│   │       ├── classifier/ (ClassifierTests)
-│   │       └── fault/ (FaultInjectionAndBypassTest)
-└── docs/
-    ├── ARCHITECTURE.md
-    ├── SECURITY_MODEL.md
-    ├── DEVICE_OWNER_SETUP.md
-    ├── VPN_ARCHITECTURE.md
-    ├── CLASSIFICATION_ENGINE.md
-    ├── AI_INTEGRATION.md
-    ├── PRIVACY.md
-    ├── TEST_PLAN.md
-    ├── BYPASS_TEST_MATRIX.md
-    ├── RELEASE_CHECKLIST.md
-    └── TROUBLESHOOTING.md
+```text
+TaRZI
+├── TaRZI-App        the shell: protection/content-blocking core, UI, navigation, settings
+├── TaRZI-Music      the music platform: search, resolution, playback, queue, library, lyrics
+└── TaRZI-AI-Agent   the assistant: voice, intent, reasoning, tool routing, automations
 ```
 
----
+Plus two small shared modules:
 
-## Building and Running
+```text
+├── contracts        interfaces + DTOs the three projects talk through (pure Kotlin, no Android UI)
+└── ui-kit           the design system: theme, typography, tokens, component primitives
+```
 
-### Build Debug APK:
+## Build
+
+There is no `gradlew` wrapper script in this repo. Use the cached Gradle 8.9
+distribution with Android Studio's bundled JDK:
+
 ```bash
-./gradlew assembleDebug
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+GRADLE="/c/Users/gamin/.gradle/wrapper/dists/gradle-8.9-bin/90cnw93cvbtalezasaz0blq0a/gradle-8.9/bin/gradle"
+
+"$GRADLE" :app:assembleDebug          # build the APK
+"$GRADLE" :app:installDebug           # install to a connected device
 ```
 
-### Run Unit Tests:
+`adb` is not on PATH by default:
+
 ```bash
-./gradlew testDebugUnitTest
+export PATH="$PATH:/c/Users/gamin/AppData/Local/Android/Sdk/platform-tools"
 ```
 
-### Provision Device Owner Mode via ADB:
+The debug build installs as `com.antigravity.shieldx.debug`.
+
+## Test
+
 ```bash
-adb shell dpm set-device-owner com.antigravity.shieldx/.device.ShieldXDeviceAdminReceiver
+"$GRADLE" :app:testDebugUnitTest        # protection, VPN, classifier, device (7 tests)
+"$GRADLE" :music:testDebugUnitTest      # queue, lyrics, live stream resolution (3 tests)
+"$GRADLE" :ai-agent:testDebugUnitTest   # intent, command registry/risk, wake word (3 tests)
 ```
+
+`StreamResolutionLiveTest` talks to YouTube on purpose — it is the only way to
+verify stream resolution actually works. It skips itself when the network is
+unavailable.
+
+## Where things live
+
+| Looking for | Go to |
+|---|---|
+| App startup, navigation, screens, settings | `TaRZI-App/src/main/java/com/antigravity/shieldx/ui/` |
+| Content blocking, VPN, classifier, policy, device admin | `TaRZI-App/src/main/java/com/antigravity/shieldx/{vpn,classifier,policy,device,tamper,apps,protection}/` |
+| The Room database, repositories | `TaRZI-App/src/main/java/com/antigravity/shieldx/data/` |
+| Music search / playback engine | `TaRZI-Music/src/main/java/com/antigravity/shieldx/music/` |
+| Music screens (search, now playing, mini player) | `TaRZI-Music/src/main/java/com/antigravity/shieldx/ui/music/` |
+| Assistant reasoning, tools, voice, automations | `TaRZI-AI-Agent/src/main/java/com/antigravity/shieldx/assistant/` |
+| Assistant chat/voice screens | `TaRZI-AI-Agent/src/main/java/com/antigravity/shieldx/ui/assistant/` |
+| Cross-project interfaces and shared models | `contracts/src/main/kotlin/com/antigravity/shieldx/core/` |
+| Colors, type, spacing, shared components | `ui-kit/src/main/java/com/antigravity/shieldx/ui/` |
+
+## Dependency rules
+
+```text
+        :app
+       /    \
+      v      v
+  :music   :ai-agent
+      \      /
+       v    v
+     :contracts
+```
+
+- `:app` may depend on `:music` and `:ai-agent`.
+- `:music` and `:ai-agent` may **not** depend on `:app` or on each other.
+- Anything the agent or music engine needs from the app is expressed as an
+  interface in `:contracts`, which `:app` implements and injects at startup.
+- `:contracts` depends on nothing but coroutines. `:ui-kit` depends on nothing
+  but Compose.
+
+See [PROJECT-BOUNDARIES.md](PROJECT-BOUNDARIES.md) for who owns what and
+[ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces talk at runtime.
+
+## Development workflow
+
+1. Decide which project owns the change (see PROJECT-BOUNDARIES.md).
+2. If it needs something from another project, add or reuse an interface in
+   `:contracts` — don't reach across a module boundary.
+3. Build and test that module, then `:app:assembleDebug`.
+4. For anything touching playback, voice, or protection enforcement, verify on
+   a real device — unit tests don't cover the service/ExoPlayer/VPN paths.
+
+## Note on naming
+
+The Kotlin package root and `applicationId` are still `com.antigravity.shieldx`
+from the app's earlier "ShieldX" identity. This was left deliberately: changing
+the `applicationId` would present as a different app to Android and lose the
+installed app's local data. The module boundaries carry the ownership, not the
+package names.
