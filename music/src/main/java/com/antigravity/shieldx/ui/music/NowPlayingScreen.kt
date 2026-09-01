@@ -42,7 +42,7 @@ import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.PlaybackCommand
 import com.antigravity.shieldx.core.model.PlaybackState
 import com.antigravity.shieldx.core.model.Track
-import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.music.MusicGraph
 import com.antigravity.shieldx.music.LyricLine
 import com.antigravity.shieldx.ui.components.StateMessage
 import com.antigravity.shieldx.ui.theme.*
@@ -61,7 +61,7 @@ private enum class NowPlayingTab { Track, Lyrics, Queue }
 @Composable
 fun NowPlayingScreen(
     playbackState: PlaybackState,
-    securityManager: SecurityManager,
+    musicGraph: MusicGraph,
     onDismiss: () -> Unit
 ) {
     val track = playbackState.currentTrack
@@ -75,7 +75,7 @@ fun NowPlayingScreen(
     LaunchedEffect(track?.id, tab) {
         if (track != null && tab == NowPlayingTab.Lyrics && lyrics == null && !lyricsLoading) {
             lyricsLoading = true
-            lyrics = securityManager.lyricsService.getLyrics(track.title, track.artist)
+            lyrics = musicGraph.lyricsService.getLyrics(track.title, track.artist)
             lyricsLoading = false
         }
     }
@@ -138,16 +138,16 @@ fun NowPlayingScreen(
                         queue = playbackState.queue,
                         currentIndex = playbackState.queueIndex,
                         onPlayAt = { index ->
-                            scope.launch { securityManager.musicController.playQueueItem(index) }
+                            scope.launch { musicGraph.musicController.playQueueItem(index) }
                         },
                         onRemove = { index ->
-                            scope.launch { securityManager.musicController.removeQueueItem(index) }
+                            scope.launch { musicGraph.musicController.removeQueueItem(index) }
                         },
                         onMove = { from, to ->
-                            scope.launch { securityManager.musicController.moveQueueItem(from, to) }
+                            scope.launch { musicGraph.musicController.moveQueueItem(from, to) }
                         },
                         onClearUpcoming = {
-                            scope.launch { securityManager.musicController.clearUpcoming() }
+                            scope.launch { musicGraph.musicController.clearUpcoming() }
                         }
                     )
                 }
@@ -188,13 +188,13 @@ fun NowPlayingScreen(
 
                 var isLiked by remember(track.id) { mutableStateOf(false) }
                 LaunchedEffect(track.id) {
-                    isLiked = securityManager.musicLibraryRepository.isLiked(track.id)
+                    isLiked = musicGraph.musicLibraryRepository.isLiked(track.id)
                 }
 
                 IconButton(
                     onClick = {
                         scope.launch {
-                            isLiked = securityManager.musicLibraryRepository.toggleLike(track)
+                            isLiked = musicGraph.musicLibraryRepository.toggleLike(track)
                         }
                     }
                 ) {
@@ -211,7 +211,7 @@ fun NowPlayingScreen(
             Scrubber(
                 positionMs = playbackState.currentPositionMs,
                 durationMs = playbackState.durationMs,
-                onSeek = { scope.launch { securityManager.musicController.seekTo(it) } }
+                onSeek = { scope.launch { musicGraph.musicController.seekTo(it) } }
             )
 
             Spacer(Modifier.height(Space.sm))
@@ -219,14 +219,14 @@ fun NowPlayingScreen(
             TransportControls(
                 isPlaying = playbackState.isPlaying,
                 isBuffering = playbackState.isBuffering,
-                onPrevious = { scope.launch { securityManager.musicController.previous() } },
-                onNext = { scope.launch { securityManager.musicController.next() } },
+                onPrevious = { scope.launch { musicGraph.musicController.previous() } },
+                onNext = { scope.launch { musicGraph.musicController.next() } },
                 onToggle = {
                     scope.launch {
                         if (playbackState.isPlaying) {
-                            securityManager.musicController.pause()
+                            musicGraph.musicController.pause()
                         } else {
-                            securityManager.musicController.resume()
+                            musicGraph.musicController.resume()
                         }
                     }
                 }

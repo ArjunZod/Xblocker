@@ -106,7 +106,7 @@ fun TarziApp(securityManager: SecurityManager) {
                     if (playbackState.currentTrack != null) {
                         MiniPlayerBar(
                             playbackState = playbackState,
-                            securityManager = securityManager,
+                            musicGraph = securityManager.musicGraph,
                             onExpandClick = { showFullPlayer = true }
                         )
                     }
@@ -142,7 +142,7 @@ fun TarziApp(securityManager: SecurityManager) {
 
                 composable(Screen.Music.route) {
                     MusicHomeScreen(
-                        securityManager = securityManager,
+                        musicGraph = securityManager.musicGraph,
                         onOpenFullPlayer = { showFullPlayer = true }
                     )
                 }
@@ -207,7 +207,7 @@ fun TarziApp(securityManager: SecurityManager) {
             if (showFullPlayer) {
                 NowPlayingScreen(
                     playbackState = playbackState,
-                    securityManager = securityManager,
+                    musicGraph = securityManager.musicGraph,
                     onDismiss = { showFullPlayer = false }
                 )
             }

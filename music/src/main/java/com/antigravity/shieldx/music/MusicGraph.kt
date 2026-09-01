@@ -3,13 +3,13 @@ package com.antigravity.shieldx.music
 import android.content.Context
 import com.antigravity.shieldx.core.runtime.ContentPolicyGate
 import com.antigravity.shieldx.core.runtime.MusicController
-import com.antigravity.shieldx.data.local.AppDatabase
 
 /**
  * Everything TaRZI-Music owns. Takes a ContentPolicyGate rather than App's
- * concrete PolicyEngine — the same contract MusicControllerImpl depends on.
+ * concrete PolicyEngine, and a PlayHistoryDao rather than App's AppDatabase —
+ * :music must not depend on :app.
  */
-class MusicGraph(context: Context, policyGate: ContentPolicyGate, database: AppDatabase) {
+class MusicGraph(context: Context, policyGate: ContentPolicyGate, playHistoryDao: PlayHistoryDao) {
 
     val innerTubeClient = InnerTubeClient()
     val lavalinkNodeManager = LavalinkNodeManager()
@@ -21,7 +21,7 @@ class MusicGraph(context: Context, policyGate: ContentPolicyGate, database: AppD
             DeezerCatalogAdapter()
         )
     )
-    val playHistoryRepository = PlayHistoryRepository(database.playHistoryDao())
+    val playHistoryRepository = PlayHistoryRepository(playHistoryDao)
     val musicLibraryRepository = MusicLibraryRepository(context, playHistoryRepository)
     val lyricsService = LyricsService()
 

@@ -25,7 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.PlaybackState
 import com.antigravity.shieldx.core.model.Track
-import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.music.MusicGraph
 import com.antigravity.shieldx.ui.theme.*
 import kotlinx.coroutines.launch
 
@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MiniPlayerBar(
     playbackState: PlaybackState,
-    securityManager: SecurityManager,
+    musicGraph: MusicGraph,
     onExpandClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -122,9 +122,9 @@ fun MiniPlayerBar(
                             .clickable {
                                 scope.launch {
                                     if (playbackState.isPlaying) {
-                                        securityManager.musicController.pause()
+                                        musicGraph.musicController.pause()
                                     } else {
-                                        securityManager.musicController.resume()
+                                        musicGraph.musicController.resume()
                                     }
                                 }
                             }
@@ -143,7 +143,7 @@ fun MiniPlayerBar(
                         .clip(CircleShape)
                         .clickable {
                             scope.launch {
-                                securityManager.musicController.stop()
+                                musicGraph.musicController.stop()
                             }
                         }
                         .padding(4.dp)
@@ -160,7 +160,7 @@ fun MiniPlayerBar(
 @Composable
 fun FullPlayerBottomSheet(
     playbackState: PlaybackState,
-    securityManager: SecurityManager,
+    musicGraph: MusicGraph,
     onDismiss: () -> Unit
 ) {
     val track = playbackState.currentTrack ?: return
@@ -253,7 +253,7 @@ fun FullPlayerBottomSheet(
                 },
                 onValueChangeFinished = {
                     scope.launch {
-                        securityManager.musicController.seekTo(
+                        musicGraph.musicController.seekTo(
                             (scrubPosition * playbackState.durationMs).toLong()
                         )
                         isScrubbing = false
@@ -296,7 +296,7 @@ fun FullPlayerBottomSheet(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .clickable { scope.launch { securityManager.musicController.previous() } }
+                        .clickable { scope.launch { musicGraph.musicController.previous() } }
                         .padding(10.dp)
                 )
 
@@ -310,9 +310,9 @@ fun FullPlayerBottomSheet(
                         .clickable {
                             scope.launch {
                                 if (playbackState.isPlaying) {
-                                    securityManager.musicController.pause()
+                                    musicGraph.musicController.pause()
                                 } else {
-                                    securityManager.musicController.resume()
+                                    musicGraph.musicController.resume()
                                 }
                             }
                         },
@@ -347,7 +347,7 @@ fun FullPlayerBottomSheet(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .clickable { scope.launch { securityManager.musicController.next() } }
+                        .clickable { scope.launch { musicGraph.musicController.next() } }
                         .padding(10.dp)
                 )
             }

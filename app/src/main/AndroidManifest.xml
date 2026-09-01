@@ -100,15 +100,7 @@
                 android:value="System-level content filtering and parental controls" />
         </service>
 
-        <!-- Native Media3 Music Playback Service -->
-        <service
-            android:name=".music.MusicPlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
-        </service>
+        <!-- MusicPlaybackService is declared by the :music module's manifest. -->
 
         <!--
             Gives Tarzi system-wide sight and control. This is what lets the

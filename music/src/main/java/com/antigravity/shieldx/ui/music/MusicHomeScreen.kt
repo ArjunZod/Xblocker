@@ -31,7 +31,7 @@ import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.MusicSource
 import com.antigravity.shieldx.core.model.PlaybackCommand
 import com.antigravity.shieldx.core.model.Track
-import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.music.MusicGraph
 import com.antigravity.shieldx.music.ExploreSection
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun MusicHomeScreen(
-    securityManager: SecurityManager,
+    musicGraph: MusicGraph,
     onOpenFullPlayer: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -61,13 +61,13 @@ fun MusicHomeScreen(
 
     // Recently played comes from the database, so it survives restarts and
     // updates the moment a track actually starts playing.
-    val recent by securityManager.playHistoryRepository.recentFlow
+    val recent by musicGraph.playHistoryRepository.recentFlow
         .collectAsState(initial = emptyList())
 
     LaunchedEffect(Unit) {
         isLoadingSections = true
         sections = try {
-            securityManager.innerTubeClient.getExploreSections()
+            musicGraph.innerTubeClient.getExploreSections()
                 .filter { it.items.isNotEmpty() }
         } catch (_: Exception) {
             emptyList()
@@ -85,7 +85,7 @@ fun MusicHomeScreen(
         hasSearched = true
         scope.launch {
             results = try {
-                securityManager.musicSearchEngine.search(q)
+                musicGraph.musicSearchEngine.search(q)
             } catch (_: Exception) {
                 emptyList()
             }
@@ -96,7 +96,7 @@ fun MusicHomeScreen(
     fun play(track: Track) {
         scope.launch {
             onOpenFullPlayer()
-            securityManager.musicController.play(PlaybackCommand.PlayTrack(track))
+            musicGraph.musicController.play(PlaybackCommand.PlayTrack(track))
         }
     }
 

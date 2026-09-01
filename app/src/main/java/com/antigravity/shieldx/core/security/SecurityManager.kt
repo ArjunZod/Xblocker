@@ -24,7 +24,7 @@ class SecurityManager private constructor(context: Context) {
     val eventBus: EventBus = EventBus()
 
     private val protection = ProtectionGraph(appContext, database)
-    private val music = MusicGraph(appContext, protection.policyEngine, database)
+    private val music = MusicGraph(appContext, protection.policyEngine, database.playHistoryDao())
     private val agent = AgentGraph(
         context = appContext,
         database = database,
@@ -68,6 +68,8 @@ class SecurityManager private constructor(context: Context) {
     val musicLibraryRepository get() = music.musicLibraryRepository
     val lyricsService get() = music.lyricsService
     val musicController: MusicController get() = music.musicController
+    /** Full Music-owned dependency set, for Music's own screens. */
+    val musicGraph: MusicGraph get() = music
 
     // --- Assistant subsystem (delegated to AgentGraph) ---
     var voiceAssistantManager: com.antigravity.shieldx.assistant.voice.VoiceAssistantManager? = null
