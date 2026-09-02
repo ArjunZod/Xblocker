@@ -3,42 +3,57 @@ package com.antigravity.shieldx.ui.blocked
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.antigravity.shieldx.ui.components.PrimaryButton
+import com.antigravity.shieldx.learning.EnglishLessons
+import com.antigravity.shieldx.learning.Lesson
+import com.antigravity.shieldx.learning.LessonKind
+import com.antigravity.shieldx.learning.LearningProgress
+import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 
 /**
- * Shown when a request is blocked. It appears at a bad moment for the user, so
- * the tone is matter-of-fact: what was blocked, why, and a way out. No alarm
- * graphics, no lecture.
+ * What replaces "this site can't be reached".
+ *
+ * The browser's error page is a dead end that invites a workaround. This is the
+ * same moment used differently: the request is still blocked, but the screen
+ * hands back something worth the interruption and then gets out of the way.
+ *
+ * What it deliberately does not do: name the site, say what category it was,
+ * count slips, or say anything about willpower. Shame is what makes people
+ * uninstall a blocker. The site is simply not mentioned.
  */
 class BlockInterceptActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
-        val target = intent.getStringExtra("EXTRA_TARGET").orEmpty()
-        val reason = intent.getStringExtra("EXTRA_REASON")
-            ?: "This site is on your blocked list."
+        val progress = LearningProgress(this)
+        val lesson = EnglishLessons.forMoment(progress.seenIds())
+        progress.markSeen(lesson.id)
+        progress.noteShown()
 
         setContent {
             TarziTheme {
                 BlockInterceptScreen(
-                    target = target,
-                    reason = reason,
+                    lesson = lesson,
+                    learnedCount = progress.learnedCount(),
+                    dayNumber = progress.daysSinceStart(),
                     onClose = { finish() }
                 )
             }
@@ -48,66 +63,125 @@ class BlockInterceptActivity : ComponentActivity() {
 
 @Composable
 fun BlockInterceptScreen(
-    target: String,
-    reason: String,
+    lesson: Lesson,
+    learnedCount: Int,
+    dayNumber: Int,
     onClose: () -> Unit
 ) {
+    var revealed by remember { mutableStateOf(false) }
+
     Column(
-        modifier = Modifier
+        Modifier
             .fillMaxSize()
             .background(Canvas)
-            .padding(Space.section),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Space.gutter)
     ) {
-        Box(
-            Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(SurfaceRaised),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.Block,
-                contentDescription = null,
-                tint = TextSecondary,
-                modifier = Modifier.size(26.dp)
-            )
-        }
+        Spacer(Modifier.height(Space.section))
 
-        Spacer(Modifier.height(Space.xl))
-
+        // No site name, no category, no judgement - just a door closing quietly.
         Text(
-            text = "Blocked",
-            style = MaterialTheme.typography.headlineMedium,
+            text = "Not this one.",
+            style = MaterialTheme.typography.headlineLarge,
             color = TextPrimary
         )
+        Spacer(Modifier.height(Space.xs))
+        Text(
+            text = "Here's thirty seconds of English instead.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = TextSecondary
+        )
 
-        if (target.isNotBlank()) {
+        Spacer(Modifier.height(Space.xxl))
+
+        // The lesson ------------------------------------------------------
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(Radius.md)
+                .background(Surface)
+                .padding(Space.xl)
+        ) {
+            StatusChip(
+                text = when (lesson.kind) {
+                    LessonKind.Word -> "Word"
+                    LessonKind.Idiom -> "Phrase"
+                    LessonKind.Story -> "Short read"
+                },
+                tone = StatusTone.Neutral
+            )
+            Spacer(Modifier.height(Space.md))
+            Text(
+                text = lesson.headline,
+                style = MaterialTheme.typography.headlineMedium,
+                color = TextPrimary
+            )
             Spacer(Modifier.height(Space.sm))
             Text(
-                text = target,
+                text = lesson.meaning,
                 style = MaterialTheme.typography.bodyLarge,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
+                color = TextSecondary
+            )
+            Spacer(Modifier.height(Space.lg))
+            Text(
+                text = lesson.example,
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextPrimary
             )
         }
 
-        Spacer(Modifier.height(Space.md))
+        Spacer(Modifier.height(Space.lg))
 
-        Text(
-            text = reason,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextTertiary,
-            textAlign = TextAlign.Center
-        )
+        // Optional self-check. Nothing depends on getting it right.
+        if (!revealed) {
+            SecondaryButton(
+                text = "Quick check",
+                onClick = { revealed = true },
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(Radius.md)
+                    .background(SurfaceRaised)
+                    .padding(Space.lg)
+            ) {
+                Text(
+                    text = lesson.question,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(Space.sm))
+                Text(
+                    text = lesson.options[lesson.correctIndex],
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Success
+                )
+            }
+        }
 
         Spacer(Modifier.height(Space.section))
 
-        PrimaryButton(
-            text = "Go back",
-            onClick = onClose,
-            modifier = Modifier.widthIn(max = 260.dp)
-        )
+        // What they have accumulated. This number never goes down.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (learnedCount == 1) "1 learned" else "$learnedCount learned",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Day $dayNumber",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextTertiary
+                )
+            }
+        }
+
+        Spacer(Modifier.height(Space.lg))
+        PrimaryButton(text = "Close", onClick = onClose)
+        Spacer(Modifier.height(Space.section))
     }
 }

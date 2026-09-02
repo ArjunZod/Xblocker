@@ -73,6 +73,7 @@ class ProtectionVpnService : VpnService() {
     private lateinit var auditRepository: AuditRepository
     private lateinit var blockRecorder: BlockEventRecorder
     private lateinit var privateDnsGuard: PrivateDnsGuard
+    private lateinit var learningProgress: com.antigravity.shieldx.learning.LearningProgress
     private lateinit var domainMatcher: DomainMatcher
     private lateinit var safeSearchEnforcer: SafeSearchEnforcer
     private lateinit var dnsFilter: DnsFilter
@@ -88,6 +89,7 @@ class ProtectionVpnService : VpnService() {
         policyRepository = PolicyRepository(database)
         auditRepository = AuditRepository(database)
         blockRecorder = BlockEventRecorder(auditRepository, serviceScope)
+        learningProgress = com.antigravity.shieldx.learning.LearningProgress(applicationContext)
         privateDnsGuard = PrivateDnsGuard(
             applicationContext,
             com.antigravity.shieldx.device.DeviceOwnerController(applicationContext)
@@ -263,6 +265,13 @@ class ProtectionVpnService : VpnService() {
                                         reason = evalResult.reason ?: BlockReason.KNOWN_ADULT_DOMAIN,
                                         detail = "DNS query blocked and sinkholed"
                                     )
+                                    // One page can fan out into dozens of
+                                    // blocked lookups, so this is rate limited
+                                    // to one screen per quiet period.
+                                    if (learningProgress.shouldShowNow()) {
+                                        learningProgress.noteShown()
+                                        showBlockScreen()
+                                    }
                                     // Synthesize sinkhole response
                                     val responseIpPacket = dnsFilter.wrapIpUdp(
                                         srcIp = parsed.destIp,
@@ -353,6 +362,20 @@ class ProtectionVpnService : VpnService() {
                 runCatching { inputStream.close() }
                 runCatching { outputStream.close() }
             }
+        }
+    }
+
+    /**
+     * Brings up the lesson screen in place of the browser's error page. Fails
+     * quietly: on newer Android a background start can be refused, and a
+     * blocked request must still be blocked even when nothing can be shown.
+     */
+    private fun showBlockScreen() {
+        runCatching {
+            val intent = android.content.Intent(this, com.antigravity.shieldx.ui.blocked.BlockInterceptActivity::class.java)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
         }
     }
 

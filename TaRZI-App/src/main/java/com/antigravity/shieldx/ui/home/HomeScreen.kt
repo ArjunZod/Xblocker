@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.ProtectionProfile
 import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.learning.LearningProgress
+import com.antigravity.shieldx.ui.blocked.DisableGate
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import com.antigravity.shieldx.vpn.ProtectionVpnService
@@ -59,6 +61,9 @@ fun HomeScreen(
     val policy by securityManager.policyRepository.currentPolicyFlow.collectAsState(initial = null)
     val isProtected = policy?.isEnabled == true && isVpnRunning
 
+    val learning = remember { LearningProgress(context) }
+    var showDisableGate by remember { mutableStateOf(false) }
+
     val vpnConsent = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -67,17 +72,44 @@ fun HomeScreen(
         }
     }
 
+    fun enableProtection() {
+        // As device owner, always-on VPN carries its own consent, so the system
+        // dialog never appears. Otherwise Android requires the prompt once -
+        // there is no supported way to capture traffic without it - and never
+        // asks again afterwards.
+        val silent = securityManager.deviceOwnerController.isDeviceOwner() &&
+            securityManager.deviceOwnerController.configureAlwaysOnVpn(lockdownEnabled = true)
+
+        if (silent) {
+            scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.MAXIMUM) }
+            return
+        }
+
+        val intent = VpnService.prepare(context)
+        if (intent != null) {
+            vpnConsent.launch(intent)
+        } else {
+            scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.MAXIMUM) }
+        }
+    }
+
     fun toggleProtection() {
         if (isProtected) {
-            scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.OFF) }
+            // Turning it off goes through the gate; turning it on never does.
+            showDisableGate = true
         } else {
-            val intent = VpnService.prepare(context)
-            if (intent != null) {
-                vpnConsent.launch(intent)
-            } else {
-                scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.MAXIMUM) }
-            }
+            enableProtection()
         }
+    }
+
+    if (showDisableGate) {
+        DisableGate(
+            onDismiss = { showDisableGate = false },
+            onConfirmed = {
+                showDisableGate = false
+                scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.OFF) }
+            }
+        )
     }
 
     Box(
@@ -116,6 +148,12 @@ fun HomeScreen(
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
+                    )
+                    Spacer(Modifier.height(Space.md))
+                    Text(
+                        text = learning.summary(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextTertiary
                     )
                     Spacer(Modifier.height(Space.lg))
                     PrimaryButton(
