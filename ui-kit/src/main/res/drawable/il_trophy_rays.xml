@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Level up. Rays behind a gold cup, with confetti that reads at small sizes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp" android:height="200dp"
+    android:viewportWidth="200" android:viewportHeight="200">
+
+    <path android:pathData="M100,100 m-90,0 a90,90 0 1,0 180,0 a90,90 0 1,0 -180,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="100" android:centerY="96" android:gradientRadius="90">
+                <item android:offset="0.4" android:color="#33E8875A" />
+                <item android:offset="1.0" android:color="#00E8875A" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Rays -->
+    <path android:pathData="M100,14 l9,26 -18,0 z M158,40 l12,25 -22,-6 z M42,40 l10,19 -22,6 z M178,104 l22,8 -22,8 -4,-16 z M22,104 l4,16 -22,-8 z"
+        android:fillColor="#FFE8875A" android:fillAlpha="0.45" />
+
+    <!-- Cup -->
+    <path android:pathData="M68,44 h64 v28 a32,32 0 0,1 -64,0 z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="68" android:startY="44" android:endX="132" android:endY="104">
+                <item android:offset="0.0" android:color="#FFF7C56B" />
+                <item android:offset="0.6" android:color="#FFE8A23F" />
+                <item android:offset="1.0" android:color="#FFC97C1E" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M68,44 h16 v28 a32,32 0 0,0 6,18 a32,32 0 0,1 -22,-18 z" android:fillColor="#FFFFFFFF" android:fillAlpha="0.24" />
+
+    <!-- Handles -->
+    <path android:pathData="M56,48 h12 v10 h-6 a8,8 0 0,0 6,14 v10 a20,20 0 0,1 -12,-34 z" android:fillColor="#FFE8A23F" />
+    <path android:pathData="M144,48 h-12 v10 h6 a8,8 0 0,1 -6,14 v10 a20,20 0 0,0 12,-34 z" android:fillColor="#FFE8A23F" />
+
+    <!-- Stem and base -->
+    <path android:pathData="M94,104 h12 v22 h-12 z" android:fillColor="#FFC97C1E" />
+    <path android:pathData="M74,126 h52 v14 h-52 z" android:fillColor="#FFE8A23F" />
+    <path android:pathData="M66,140 h68 v12 h-68 z" android:fillColor="#FFC97C1E" />
+
+    <!-- Confetti -->
+    <path android:pathData="M40,86 h12 v12 h-12 z" android:fillColor="#FF7C7AF5" />
+    <path android:pathData="M152,120 h10 v10 h-10 z" android:fillColor="#FF3DBE7C" />
+    <path android:pathData="M34,158 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" android:fillColor="#FF7C7AF5" />
+    <path android:pathData="M166,80 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" android:fillColor="#FF3DBE7C" />
+</vector>

@@ -192,13 +192,12 @@ private fun RewardScreen(
                 .padding(Space.xl),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                painter = painterResource(meme.iconRes),
+            androidx.compose.foundation.Image(
+                painter = painterResource(com.antigravity.shieldx.uikit.R.drawable.il_burst_block),
                 contentDescription = null,
-                tint = Accent,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(148.dp)
             )
-            Spacer(Modifier.height(Space.md))
+            Spacer(Modifier.height(Space.sm))
             Text(
                 text = meme.punch,
                 style = MaterialTheme.typography.headlineLarge,

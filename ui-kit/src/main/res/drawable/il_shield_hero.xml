@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Protection, as a piece of art rather than an icon.
+
+    Layered on purpose: a soft halo, a dropped back-plate offset down-right, the
+    shield face on top, then a highlight running down its left edge. That stack
+    is what reads as depth. The palette sits mid-tone throughout so the whole
+    thing holds up on both the light and the dark canvas without a second copy.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Halo -->
+    <path android:pathData="M100,18 L172,48 L172,104 C172,146 141,172 100,184 C59,172 28,146 28,104 L28,48 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:centerX="100" android:centerY="100" android:gradientRadius="96">
+                <item android:offset="0.55" android:color="#2E7C7AF5" />
+                <item android:offset="1.0" android:color="#007C7AF5" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Back plate, offset to throw the face forward -->
+    <path
+        android:pathData="M104,36 L166,62 L166,108 C166,143 139,165 104,175 C69,165 42,143 42,108 L42,62 Z"
+        android:fillColor="#3D3A8F"
+        android:fillAlpha="0.55" />
+
+    <!-- Shield face -->
+    <path android:pathData="M98,30 L158,56 L158,102 C158,137 132,159 98,169 C64,159 38,137 38,102 L38,56 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="38" android:startY="30" android:endX="158" android:endY="169">
+                <item android:offset="0.0" android:color="#FF8F8CFF" />
+                <item android:offset="0.55" android:color="#FF6462E0" />
+                <item android:offset="1.0" android:color="#FF4A48B8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Left highlight -->
+    <path
+        android:pathData="M98,30 L38,56 L38,102 C38,124 48,141 62,152 C54,138 50,120 50,102 L50,64 Z"
+        android:fillColor="#FFFFFFFF"
+        android:fillAlpha="0.16" />
+
+    <!-- Check mark -->
+    <path
+        android:pathData="M76,100 L91,115 L124,82 L133,91 L91,133 L67,109 Z"
+        android:fillColor="#FFFFFFFF"
+        android:fillAlpha="0.95" />
+
+    <!-- Orbiting marks, for a little life -->
+    <path android:pathData="M172,52 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" android:fillColor="#FFE8875A" />
+    <path android:pathData="M30,132 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" android:fillColor="#FF3DBE7C" />
+    <path android:pathData="M158,158 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" android:fillColor="#FF8F8CFF" />
+</vector>

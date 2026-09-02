@@ -145,7 +145,18 @@ fun HomeScreen(
 
             // 1. Primary AI Assistant Prompt Bar
             item {
-                Column(Modifier.padding(horizontal = Space.gutter)) {
+                Column(
+                    Modifier.padding(horizontal = Space.gutter),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    androidx.compose.foundation.Image(
+                        painter = androidx.compose.ui.res.painterResource(
+                            com.antigravity.shieldx.uikit.R.drawable.il_shield_hero
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.size(168.dp)
+                    )
+                    Spacer(Modifier.height(Space.lg))
                     Text(
                         text = if (isProtected) "Filtering is on" else "Filtering is off",
                         style = MaterialTheme.typography.headlineMedium,

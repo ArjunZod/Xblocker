@@ -112,39 +112,37 @@ fun TarziControlScreen(
 
         item { ScreenHeader(title = "Settings") }
 
+        // Appearance ---------------------------------------------------------
+
+        item { SectionHeader("Appearance") }
+        item {
+            val themeCtl = com.antigravity.shieldx.ui.theme.LocalThemeController.current
+            Grouped {
+                com.antigravity.shieldx.ui.theme.ThemeMode.values().forEachIndexed { i, m ->
+                    if (i > 0) RowDivider()
+                    SettingRow(
+                        title = when (m) {
+                            com.antigravity.shieldx.ui.theme.ThemeMode.System -> "Follow system"
+                            com.antigravity.shieldx.ui.theme.ThemeMode.Light -> "Light"
+                            com.antigravity.shieldx.ui.theme.ThemeMode.Dark -> "Dark"
+                        },
+                        onClick = { themeCtl.setMode(m) },
+                        trailing = {
+                            if (themeCtl.mode == m) RowValue("On", Accent) else RowValue("")
+                        }
+                    )
+                }
+            }
+        }
+
         // Permissions --------------------------------------------------------
 
         item { SectionHeader("Permissions") }
         item {
             Grouped {
                 PermissionRow(
-                    title = "Microphone",
-                    description = "Required for voice commands",
-                    granted = hasMic
-                ) {
-                    val wanted = mutableListOf(Manifest.permission.RECORD_AUDIO)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        wanted += Manifest.permission.POST_NOTIFICATIONS
-                    }
-                    permissions.launch(wanted.toTypedArray())
-                }
-                RowDivider()
-                PermissionRow(
-                    title = "Display over apps",
-                    description = "Shows the assistant button anywhere",
-                    granted = hasOverlay
-                ) {
-                    context.startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:" + context.packageName)
-                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
-                }
-                RowDivider()
-                PermissionRow(
                     title = "Notifications",
-                    description = "Keeps the assistant running in the background",
+                    description = "Lets the filter show that it is running",
                     granted = hasNotifications
                 ) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -153,21 +151,8 @@ fun TarziControlScreen(
                 }
                 RowDivider()
                 PermissionRow(
-                    title = "Phone and contacts",
-                    description = "Needed to look up a name and place a call",
-                    granted = hasContacts && hasPhone
-                ) {
-                    permissions.launch(
-                        arrayOf(
-                            Manifest.permission.READ_CONTACTS,
-                            Manifest.permission.CALL_PHONE
-                        )
-                    )
-                }
-                RowDivider()
-                PermissionRow(
                     title = "Unrestricted battery",
-                    description = "Optional. Stops Android pausing the assistant",
+                    description = "Optional. Stops Android pausing the filter",
                     granted = ignoresBattery
                 ) { context.requestIgnoreBatteryOptimization() }
             }

@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         securityManager = SecurityManager.getInstance(applicationContext)
 
         setContent {
-            TarziTheme {
+            TarziThemeRoot(context = this) {
                 TarziApp(securityManager = securityManager)
             }
         }

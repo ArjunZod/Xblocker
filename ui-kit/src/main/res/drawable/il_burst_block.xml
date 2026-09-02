@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The block, drawn as an impact rather than a warning.
+
+    Deliberately not red and not a warning triangle: this screen appears at a
+    moment the user already feels bad about, and a hazard sign aimed at them is
+    what makes people uninstall a blocker. It is a shockwave in the app's own
+    accent - something stopped, decisively, on their side.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp" android:height="200dp"
+    android:viewportWidth="200" android:viewportHeight="200">
+
+    <path android:pathData="M100,100 m-92,0 a92,92 0 1,0 184,0 a92,92 0 1,0 -184,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="100" android:centerY="100" android:gradientRadius="92">
+                <item android:offset="0.45" android:color="#337C7AF5" />
+                <item android:offset="1.0" android:color="#007C7AF5" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Shockwave rings -->
+    <path android:pathData="M100,100 m-74,0 a74,74 0 1,0 148,0 a74,74 0 1,0 -148,0 M100,100 m-66,0 a66,66 0 1,1 132,0 a66,66 0 1,1 -132,0"
+        android:fillColor="#FF8F8CFF" android:fillAlpha="0.30" />
+    <path android:pathData="M100,100 m-56,0 a56,56 0 1,0 112,0 a56,56 0 1,0 -112,0 M100,100 m-50,0 a50,50 0 1,1 100,0 a50,50 0 1,1 -100,0"
+        android:fillColor="#FF8F8CFF" android:fillAlpha="0.45" />
+
+    <!-- Core octagon -->
+    <path android:pathData="M86,58 h28 l20,20 v28 l-20,20 h-28 l-20,-20 v-28 z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="66" android:startY="58" android:endX="134" android:endY="126">
+                <item android:offset="0.0" android:color="#FF8F8CFF" />
+                <item android:offset="1.0" android:color="#FF5B4BE8" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M86,58 h28 l6,6 h-40 z" android:fillColor="#FFFFFFFF" android:fillAlpha="0.22" />
+    <path android:pathData="M82,88 h36 v10 h-36 z" android:fillColor="#FFFFFFFF" android:fillAlpha="0.95" />
+
+    <!-- Sparks -->
+    <path android:pathData="M158,44 l6,12 12,6 -12,6 -6,12 -6,-12 -12,-6 12,-6 z" android:fillColor="#FFE8875A" />
+    <path android:pathData="M36,142 l4,9 9,4 -9,4 -4,9 -4,-9 -9,-4 9,-4 z" android:fillColor="#FF3DBE7C" />
+    <path android:pathData="M44,44 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0" android:fillColor="#FFE8875A" android:fillAlpha="0.8" />
+</vector>
