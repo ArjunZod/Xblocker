@@ -36,6 +36,7 @@ import coil.compose.AsyncImage
 import com.antigravity.shieldx.core.model.ProtectionProfile
 import com.antigravity.shieldx.core.security.SecurityManager
 import com.antigravity.shieldx.learning.LearningProgress
+import com.antigravity.shieldx.learning.RewardEngine
 import com.antigravity.shieldx.ui.blocked.DisableGate
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
@@ -62,6 +63,27 @@ fun HomeScreen(
     val isProtected = policy?.isEnabled == true && isVpnRunning
 
     val learning = remember { LearningProgress(context) }
+    val rewards = remember { RewardEngine(context) }
+
+    // Rewards are earned in the block screen, which runs as its own activity.
+    // Without re-reading on resume the home screen keeps showing the level and
+    // XP from before the block, so the loop looks like it did nothing.
+    var rewardsRevision by remember { mutableIntStateOf(0) }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) rewardsRevision++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val level = remember(rewardsRevision) { rewards.level() }
+    val rank = remember(rewardsRevision) { rewards.rank() }
+    val xpTotal = remember(rewardsRevision) { rewards.xp() }
+    val streak = remember(rewardsRevision) { rewards.streakDays() }
+    val resists = remember(rewardsRevision) { rewards.totalResists() }
+    val challenges = remember(rewardsRevision) { rewards.challenges() }
+    val learningLine = remember(rewardsRevision) { learning.summary() }
     var showDisableGate by remember { mutableStateOf(false) }
 
     val vpnConsent = rememberLauncherForActivityResult(
@@ -100,16 +122,6 @@ fun HomeScreen(
         } else {
             enableProtection()
         }
-    }
-
-    if (showDisableGate) {
-        DisableGate(
-            onDismiss = { showDisableGate = false },
-            onConfirmed = {
-                showDisableGate = false
-                scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.OFF) }
-            }
-        )
     }
 
     Box(
@@ -151,7 +163,14 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(Space.md))
                     Text(
-                        text = learning.summary(),
+                        text = "LVL $level · $rank · $xpTotal XP" +
+                            if (streak > 1) "  ·  $streak day streak" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Accent
+                    )
+                    Spacer(Modifier.height(Space.xs))
+                    Text(
+                        text = "$resists shut down · $learningLine",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextTertiary
                     )
@@ -160,6 +179,27 @@ fun HomeScreen(
                         text = if (isProtected) "Turn off filtering" else "Turn on filtering",
                         onClick = { toggleProtection() }
                     )
+                }
+            }
+
+            item {
+                Column {
+                    SectionHeader(title = "Today's run")
+                    Grouped {
+                        challenges.forEachIndexed { i, c ->
+                            if (i > 0) RowDivider()
+                            SettingRow(
+                                title = c.label,
+                                description = if (c.complete) "Done" else "${c.done} of ${c.target}",
+                                trailing = {
+                                    RowValue(
+                                        text = "${c.done}/${c.target}",
+                                        tint = if (c.complete) Success else TextTertiary
+                                    )
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -191,6 +231,16 @@ fun HomeScreen(
         }
 
     }
+
+    if (showDisableGate) {
+        DisableGate(
+            onDismiss = { showDisableGate = false },
+            onConfirmed = {
+                showDisableGate = false
+                scope.launch { securityManager.protectionController.setProfile(ProtectionProfile.OFF) }
+            }
+        )
+    }
 }
 
 private fun greeting(): String {
@@ -200,4 +250,5 @@ private fun greeting(): String {
         in 17..21 -> "Good evening"
         else -> "Good night"
     }
+
 }
