@@ -1,4 +1,4 @@
-package com.antigravity.shieldx.ui.admin
+﻿package com.antigravity.shieldx.ui.admin
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -21,12 +23,11 @@ import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 
 /**
- * Device owner provisioning.
- *
- * The copy here is deliberately honest about the constraint: Android only lets
- * an app become device owner on a device with no configured accounts, via ADB.
- * Promising uninstall protection without saying that would set the user up to
- * discover it the hard way.
+ * Enterprise Device Owner Provisioning Guide for Xblocker.
+ * Explains requirements for permanent Device Owner mode:
+ * - Prevents uninstallation by any user
+ * - Enables Always-On VPN lockdown without bypass toggles
+ * - Must be provisioned via ADB on a factory-reset or account-free device.
  */
 @Composable
 fun DeviceOwnerSetupScreen(
@@ -34,7 +35,8 @@ fun DeviceOwnerSetupScreen(
     onBack: () -> Unit = {}
 ) {
     val clipboard = LocalClipboardManager.current
-    val isDeviceOwner = remember { securityManager.deviceOwnerController.isDeviceOwner() }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val isDeviceOwner = remember(refreshKey) { securityManager.deviceOwnerController.isDeviceOwner() }
     val command = remember { securityManager.deviceOwnerController.getAdbProvisioningCommand() }
 
     LazyColumn(
@@ -43,22 +45,36 @@ fun DeviceOwnerSetupScreen(
             .background(Canvas),
         contentPadding = ContentBottomPadding
     ) {
-        item { ScreenHeader(title = "Managed device", onBack = onBack) }
+        item { ScreenHeader(title = "Device Owner Setup", onBack = onBack) }
 
         item {
             Column(Modifier.padding(horizontal = Space.gutter)) {
-                StatusChip(
-                    text = if (isDeviceOwner) "Enabled" else "Not enabled",
-                    tone = if (isDeviceOwner) StatusTone.Positive else StatusTone.Neutral
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StatusChip(
+                        text = if (isDeviceOwner) "Device Owner Active" else "Not Provisioned",
+                        tone = if (isDeviceOwner) StatusTone.Positive else StatusTone.Caution
+                    )
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh status",
+                        tint = TextTertiary,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { refreshKey++ }
+                    )
+                }
+
                 Spacer(Modifier.height(Space.md))
                 Text(
                     text = if (isDeviceOwner) {
-                        "Tarzi is the device owner. Uninstall protection and VPN lockdown are available."
+                        "Xblocker is active as Device Owner. Uninstall protection and system-level VPN lockdown are enforced."
                     } else {
-                        "Device owner mode lets Tarzi block its own uninstall and lock VPN settings. " +
-                            "Android only allows this to be set up over ADB, on a device with no " +
-                            "Google accounts added yet."
+                        "Device Owner mode gives Xblocker complete tamper immunity: users cannot uninstall the app or toggle off VPN protection. " +
+                            "Android security requires this to be provisioned once via ADB on a device with no accounts added yet."
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = TextSecondary
@@ -67,7 +83,7 @@ fun DeviceOwnerSetupScreen(
         }
 
         if (!isDeviceOwner) {
-            item { SectionHeader("Setup command") }
+            item { SectionHeader("Provisioning Command") }
             item {
                 Row(
                     Modifier
@@ -77,7 +93,7 @@ fun DeviceOwnerSetupScreen(
                         .background(SurfaceRaised)
                         .border(1.dp, Border, Radius.sm)
                         .padding(Space.md),
-                    verticalAlignment = androidx.compose.ui.Alignment.Top
+                    verticalAlignment = Alignment.Top
                 ) {
                     Text(
                         text = command,
@@ -97,22 +113,32 @@ fun DeviceOwnerSetupScreen(
                 }
             }
 
-            item { SectionHeader("Steps") }
+            item { SectionHeader("Step-by-Step Instructions") }
             item {
                 Grouped {
                     SettingRow(
-                        title = "1. Remove all accounts",
-                        description = "Settings, Accounts, remove every Google account"
+                        title = "1. Connect Phone via USB",
+                        description = "Plug phone into PC with a high-quality USB data cable"
                     )
                     RowDivider()
                     SettingRow(
-                        title = "2. Enable USB debugging",
-                        description = "Settings, Developer options, USB debugging"
+                        title = "2. Enable USB Debugging",
+                        description = "Go to Settings > Developer Options > Enable USB Debugging"
                     )
                     RowDivider()
                     SettingRow(
-                        title = "3. Run the command above",
-                        description = "From a computer with the device connected"
+                        title = "3. Authorize PC",
+                        description = "Tap 'Always allow from this computer' on your phone prompt"
+                    )
+                    RowDivider()
+                    SettingRow(
+                        title = "4. Remove Google Accounts",
+                        description = "Temporarily remove accounts in Settings > Accounts (can re-add after)"
+                    )
+                    RowDivider()
+                    SettingRow(
+                        title = "5. Execute ADB Command",
+                        description = "Run the command above in terminal or let the assistant configure it"
                     )
                 }
             }

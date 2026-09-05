@@ -254,7 +254,7 @@ class ProtectionVpnService : VpnService() {
                     healthMonitor.recordPacketActivity()
                     val parsed = packetParser.parse(buffer, bytesRead) ?: continue
 
-                    // Encrypted DNS & DoT/DoQ Drop: drop rather than forward
+                    // Encrypted DNS & DoT/DoQ Drop: fast TCP RST or silent drop to prevent browser hanging
                     if (EncryptedDnsBlocker.shouldDrop(parsed.destIp, parsed.destPort, parsed.protocol)) {
                         blockRecorder.record(
                             target = parsed.destIp.joinToString(".") { (it.toInt() and 0xFF).toString() },
@@ -262,6 +262,12 @@ class ProtectionVpnService : VpnService() {
                             reason = BlockReason.SAFESEARCH_ENFORCEMENT,
                             detail = "Encrypted DNS bypass blocked (port ${parsed.destPort})"
                         )
+                        if (parsed.protocol == VpnPacketParser.PROTOCOL_TCP) {
+                            val rst = packetParser.buildTcpReset(parsed)
+                            if (rst != null) {
+                                writeTunPacket(rst)
+                            }
+                        }
                         continue
                     }
 
@@ -285,15 +291,22 @@ class ProtectionVpnService : VpnService() {
                                         learningProgress.noteShown()
                                         showBlockScreen()
                                     }
-                                    val responseIpPacket = dnsFilter.wrapIpUdp(
-                                        srcIp = parsed.destIp,
-                                        dstIp = parsed.sourceIp,
-                                        srcPort = parsed.destPort,
-                                        dstPort = parsed.sourcePort,
-                                        dnsPayload = evalResult.responseBytes!!,
-                                        ipVersion = parsed.ipVersion
-                                    )
-                                    writeTunPacket(responseIpPacket)
+                                    if (isTcp) {
+                                        val rst = packetParser.buildTcpReset(parsed)
+                                        if (rst != null) {
+                                            writeTunPacket(rst)
+                                        }
+                                    } else {
+                                        val responseIpPacket = dnsFilter.wrapIpUdp(
+                                            srcIp = parsed.destIp,
+                                            dstIp = parsed.sourceIp,
+                                            srcPort = parsed.destPort,
+                                            dstPort = parsed.sourcePort,
+                                            dnsPayload = evalResult.responseBytes!!,
+                                            ipVersion = parsed.ipVersion
+                                        )
+                                        writeTunPacket(responseIpPacket)
+                                    }
                                 }
                                 PolicyDecision.RESTRICT, PolicyDecision.SAFESEARCH -> {
                                     val responseIpPacket = dnsFilter.wrapIpUdp(
@@ -429,3 +442,4 @@ class ProtectionVpnService : VpnService() {
             .build()
     }
 }
+
