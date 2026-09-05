@@ -3,8 +3,8 @@ package com.antigravity.shieldx.core.runtime
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Services :app owns and provides downward to :music and :ai-agent, so those
- * modules never need a compile-time reference back to :app.
+ * Services :app owns and provides downward to :ai-agent, so that
+ * module never needs a compile-time reference back to :app.
  */
 
 /** Key/value app configuration — API keys, toggles. */

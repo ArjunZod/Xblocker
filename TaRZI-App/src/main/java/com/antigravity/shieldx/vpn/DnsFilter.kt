@@ -1,4 +1,4 @@
-package com.antigravity.shieldx.vpn
+﻿package com.antigravity.shieldx.vpn
 
 import com.antigravity.shieldx.core.model.BlockReason
 import com.antigravity.shieldx.core.model.Category
@@ -6,17 +6,16 @@ import com.antigravity.shieldx.core.model.PolicyDecision
 import com.antigravity.shieldx.policy.SafeSearchEnforcer
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.InetAddress
 import java.nio.ByteBuffer
 
 /**
- * High-performance DNS Packet Parser, Classifier, and Synthesizer.
+ * High-performance, crash-resilient DNS Packet Parser, Classifier, and Synthesizer.
+ * Supports standard UDP DNS as well as TCP DNS (RFC 7766) and integrates with DnsDecisionCache.
  */
 class DnsFilter(
     private val domainMatcher: DomainMatcher,
-    private val safeSearchEnforcer: SafeSearchEnforcer
+    private val safeSearchEnforcer: SafeSearchEnforcer,
+    val decisionCache: DnsDecisionCache = DnsDecisionCache()
 ) {
 
     data class DnsQuery(
@@ -25,7 +24,8 @@ class DnsFilter(
         val qName: String,
         val qType: Int, // 1 = A, 28 = AAAA, 5 = CNAME, etc.
         val qClass: Int,
-        val rawDnsBytes: ByteArray
+        val rawDnsBytes: ByteArray,
+        val isTcp: Boolean = false
     )
 
     data class FilterResult(
@@ -44,121 +44,170 @@ class DnsFilter(
     }
 
     /**
-     * Parse raw DNS payload bytes from a UDP packet.
+     * Parse raw DNS payload bytes with defensive bounds checking.
+     * Supports both UDP payload and TCP payload (where [isTcp] is true).
      */
-    fun parseQuery(dnsBytes: ByteArray, offset: Int, length: Int): DnsQuery? {
-        if (length < 12) return null
-        val buffer = ByteBuffer.wrap(dnsBytes, offset, length)
+    fun parseQuery(dnsBytes: ByteArray, offset: Int, length: Int, isTcp: Boolean = false): DnsQuery? {
+        if (length < 12 || offset + length > dnsBytes.size) return null
 
-        val txId = buffer.short.toInt() and 0xFFFF
-        val flags = buffer.short.toInt() and 0xFFFF
-        val qdCount = buffer.short.toInt() and 0xFFFF
+        return try {
+            val buffer = ByteBuffer.wrap(dnsBytes, offset, length)
 
-        if (qdCount < 1) return null // Expect at least one question
+            val txId = buffer.short.toInt() and 0xFFFF
+            val flags = buffer.short.toInt() and 0xFFFF
+            val qdCount = buffer.short.toInt() and 0xFFFF
 
-        buffer.short // anCount
-        buffer.short // nsCount
-        buffer.short // arCount
+            if (qdCount < 1) return null // Must contain at least one question
 
-        // Parse QNAME
-        val domainBuilder = StringBuilder()
-        while (buffer.hasRemaining()) {
-            val labelLen = buffer.get().toInt() and 0xFF
-            if (labelLen == 0) break // End of QNAME
-            if ((labelLen and 0xC0) == 0xC0) {
-                // Compression pointer in query (rare in question, but skip next byte)
-                if (buffer.hasRemaining()) buffer.get()
-                break
+            buffer.short // anCount
+            buffer.short // nsCount
+            buffer.short // arCount
+
+            // Parse QNAME with strict RFC 1035 bounds
+            val domainBuilder = StringBuilder()
+            var totalDomainLength = 0
+
+            while (buffer.hasRemaining()) {
+                val labelLen = buffer.get().toInt() and 0xFF
+                if (labelLen == 0) break // End of QNAME
+
+                // Compression pointer in question section (uncommon, but skip 2nd byte if present)
+                if ((labelLen and 0xC0) == 0xC0) {
+                    if (buffer.hasRemaining()) buffer.get()
+                    break
+                }
+
+                // RFC 1035: Label length maximum is 63 octets
+                if (labelLen > 63 || buffer.remaining() < labelLen) return null
+
+                totalDomainLength += labelLen + 1
+                // RFC 1035: Total domain name maximum is 253 characters
+                if (totalDomainLength > 253) return null
+
+                val labelBytes = ByteArray(labelLen)
+                buffer.get(labelBytes)
+
+                // Verify label bytes are valid ASCII / non-null
+                for (b in labelBytes) {
+                    val c = b.toInt() and 0xFF
+                    if (c == 0 || (c in 1..31) || c == 127) {
+                        // Reject control characters or null bytes in domain label
+                        return null
+                    }
+                }
+
+                if (domainBuilder.isNotEmpty()) domainBuilder.append('.')
+                domainBuilder.append(String(labelBytes, Charsets.US_ASCII))
             }
-            if (buffer.remaining() < labelLen) return null
 
-            val labelBytes = ByteArray(labelLen)
-            buffer.get(labelBytes)
-            if (domainBuilder.isNotEmpty()) domainBuilder.append('.')
-            domainBuilder.append(String(labelBytes, Charsets.US_ASCII))
+            if (buffer.remaining() < 4) return null
+            val qType = buffer.short.toInt() and 0xFFFF
+            val qClass = buffer.short.toInt() and 0xFFFF
+
+            val raw = ByteArray(length)
+            System.arraycopy(dnsBytes, offset, raw, 0, length)
+
+            DnsQuery(
+                transactionId = txId,
+                flags = flags,
+                qName = domainMatcher.normalizeDomain(domainBuilder.toString()),
+                qType = qType,
+                qClass = qClass,
+                rawDnsBytes = raw,
+                isTcp = isTcp
+            )
+        } catch (_: Exception) {
+            null // Defensive: Malformed DNS packet never crashes
         }
-
-        if (buffer.remaining() < 4) return null
-        val qType = buffer.short.toInt() and 0xFFFF
-        val qClass = buffer.short.toInt() and 0xFFFF
-
-        val raw = ByteArray(length)
-        System.arraycopy(dnsBytes, offset, raw, 0, length)
-
-        return DnsQuery(
-            transactionId = txId,
-            flags = flags,
-            qName = domainBuilder.toString().lowercase(),
-            qType = qType,
-            qClass = qClass,
-            rawDnsBytes = raw
-        )
     }
 
     /**
-     * Evaluate DNS Query against Policy, Blocklist, and SafeSearch.
+     * Evaluate DNS Query against Cache, Policy, Blocklist, and SafeSearch.
      */
     fun evaluate(query: DnsQuery, safeSearchEnabled: Boolean = true): FilterResult {
         val domain = query.qName
 
-        // 0. Encrypted-DNS bootstrap. A browser that cannot resolve its DoH
-        // provider falls back to system DNS, keeping it inside this filter.
-        if (EncryptedDnsBlocker.isEncryptedDnsHostname(domain)) {
+        // 1. Check in-memory TTL decision cache first
+        decisionCache.get(domain, query.qType)?.let { cached ->
             return FilterResult(
                 query = query,
-                action = PolicyDecision.BLOCK,
-                category = Category.OTHER_EXPLICIT,
-                reason = BlockReason.SAFESEARCH_ENFORCEMENT,
-                responseBytes = buildSyntheticDnsResponse(
-                    query = query,
-                    ipV4 = SINKHOLE_IPV4,
-                    ipV6 = SINKHOLE_IPV6,
-                    ttl = 300
-                )
+                action = cached.decision,
+                category = cached.category,
+                reason = cached.reason,
+                responseBytes = if (cached.responseBytes != null) {
+                    // Patch query's transaction ID into the cached synthetic response header (first 2 bytes)
+                    val patched = cached.responseBytes.clone()
+                    if (patched.size >= 2) {
+                        patched[0] = (query.transactionId ushr 8).toByte()
+                        patched[1] = (query.transactionId and 0xFF).toByte()
+                    }
+                    patched
+                } else null
             )
         }
 
-        // 1. Check Domain Blocklist / Allowlist
-        val match = domainMatcher.match(domain)
-        if (match.isBlocked) {
-            val syntheticResponse = buildSyntheticDnsResponse(
+        // 2. Encrypted-DNS bootstrap hostname check
+        if (EncryptedDnsBlocker.isEncryptedDnsHostname(domain)) {
+            val synthetic = buildSyntheticDnsResponse(
                 query = query,
                 ipV4 = SINKHOLE_IPV4,
                 ipV6 = SINKHOLE_IPV6,
                 ttl = 300
             )
+            decisionCache.put(domain, query.qType, PolicyDecision.BLOCK, Category.OTHER_EXPLICIT, BlockReason.SAFESEARCH_ENFORCEMENT, synthetic, 300)
+            return FilterResult(
+                query = query,
+                action = PolicyDecision.BLOCK,
+                category = Category.OTHER_EXPLICIT,
+                reason = BlockReason.SAFESEARCH_ENFORCEMENT,
+                responseBytes = synthetic
+            )
+        }
+
+        // 3. Check Domain Blocklist / Suffix Trie
+        val match = domainMatcher.match(domain)
+        if (match.isBlocked) {
+            val synthetic = buildSyntheticDnsResponse(
+                query = query,
+                ipV4 = SINKHOLE_IPV4,
+                ipV6 = SINKHOLE_IPV6,
+                ttl = 300
+            )
+            decisionCache.put(domain, query.qType, PolicyDecision.BLOCK, match.category, BlockReason.KNOWN_ADULT_DOMAIN, synthetic, 300)
             return FilterResult(
                 query = query,
                 action = PolicyDecision.BLOCK,
                 category = match.category,
                 reason = BlockReason.KNOWN_ADULT_DOMAIN,
-                responseBytes = syntheticResponse
+                responseBytes = synthetic
             )
         }
 
-        // 2. Check SafeSearch Override
+        // 4. Check SafeSearch Override
         if (safeSearchEnabled) {
             val override = safeSearchEnforcer.getOverride(domain, isIpv6Requested = query.qType == QTYPE_AAAA)
             if (override != null) {
                 val ipV4 = override.targetIpV4
                 val ipV6 = override.targetIpV6 ?: SINKHOLE_IPV6
-                val syntheticResponse = buildSyntheticDnsResponse(
+                val synthetic = buildSyntheticDnsResponse(
                     query = query,
                     ipV4 = ipV4,
                     ipV6 = ipV6,
                     ttl = 3600
                 )
+                decisionCache.put(domain, query.qType, PolicyDecision.RESTRICT, Category.SAFE, BlockReason.SAFESEARCH_ENFORCEMENT, synthetic, 3600)
                 return FilterResult(
                     query = query,
                     action = PolicyDecision.RESTRICT,
                     category = Category.SAFE,
                     reason = BlockReason.SAFESEARCH_ENFORCEMENT,
-                    responseBytes = syntheticResponse
+                    responseBytes = synthetic
                 )
             }
         }
 
-        // 3. ALLOW
+        // 5. ALLOW (Cache for 60 seconds)
+        decisionCache.put(domain, query.qType, PolicyDecision.ALLOW, Category.SAFE, null, null, 60)
         return FilterResult(
             query = query,
             action = PolicyDecision.ALLOW,
@@ -268,7 +317,7 @@ class DnsFilter(
         buffer.putShort(srcPort.toShort())
         buffer.putShort(dstPort.toShort())
         buffer.putShort(udpLength.toShort())
-        buffer.putShort(0.toShort()) // Checksum (0 = optional/computed)
+        buffer.putShort(0.toShort()) // Checksum
 
         // DNS Payload
         buffer.put(dnsPayload)

@@ -1,20 +1,62 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Tarzi</string>
+    <string name="app_name">Xblocker</string>
 
-    <!-- Protection subsystem -->
-    <string name="vpn_service_title">Tarzi System Protection Active</string>
-    <string name="vpn_service_desc">Enforcing system-level adult content blocking and DNS filtering</string>
-    <string name="device_admin_label">Tarzi Device Protection</string>
-    <string name="device_admin_description">Enforces system-level adult content policy, prevents tampering, and manages VPN lockdown on managed devices.</string>
-    <string name="channel_vpn_name">Tarzi Protection Service</string>
-    <string name="channel_vpn_desc">Shows ongoing status of Tarzi system-level adult filtering</string>
-    <string name="channel_tamper_name">Tarzi Security Alerts</string>
-    <string name="channel_tamper_desc">Alerts when protection configuration is altered or tampered with</string>
+    <!-- Protection Subsystem -->
+    <string name="vpn_service_title">Xblocker Protection Active</string>
+    <string name="vpn_service_desc">Filtering adult content, malware, trackers, and enforcing SafeSearch</string>
+    <string name="device_admin_label">Xblocker Device Shield</string>
+    <string name="device_admin_description">Enforces system-level adult filtering, prevents uninstallation tampering, and manages VPN lockdown.</string>
+    
+    <!-- Notification Channels -->
+    <string name="channel_vpn_name">Protection Service</string>
+    <string name="channel_vpn_desc">Displays ongoing status of Xblocker DNS filtering and packet sinkhole</string>
+    <string name="channel_tamper_name">Security &amp; Tamper Alerts</string>
+    <string name="channel_tamper_desc">Alerts when protection configuration, clock, or VPN state is tampered with</string>
+    <string name="channel_streak_name">Progress &amp; Streaks</string>
+    <string name="channel_streak_desc">Daily challenge completions and milestone notifications</string>
 
-    <!-- Assistant subsystem -->
-    <string name="tarzi_accessibility_summary">Lets Tarzi see and control your screen in any app</string>
-    <string name="tarzi_accessibility_description">Tarzi needs screen access so it can act on your voice commands anywhere on the device — opening a video in YouTube, scrolling a page, or reading what is on screen. Tarzi only reads the screen when you ask it to do something, and never uploads screen contents unless you turn on Live Mode.</string>
-    <string name="channel_assistant_name">Tarzi Assistant</string>
-    <string name="channel_assistant_desc">Keeps Tarzi listening for its wake word</string>
+    <!-- Dashboard & Status -->
+    <string name="status_protected">PROTECTION ACTIVE</string>
+    <string name="status_disabled">PROTECTION DISABLED</string>
+    <string name="status_protected_subtitle">Device DNS, encrypted resolvers, and adult content filtered</string>
+    <string name="status_disabled_subtitle">Turn on filtering to shield apps and browsers device-wide</string>
+    <string name="security_score_title">Security Score</string>
+    <string name="btn_turn_on">Turn on filtering</string>
+    <string name="btn_turn_off">Turn off filtering</string>
+    <string name="threats_blocked_today">Blocked Today</string>
+    <string name="clean_streak">Clean Streak</string>
+    <string name="uptime_clock">Protection Uptime</string>
+
+    <!-- Categories -->
+    <string name="cat_adult">Adult &amp; Explicit</string>
+    <string name="cat_gambling">Gambling &amp; Betting</string>
+    <string name="cat_malware">Malware &amp; Ransomware</string>
+    <string name="cat_phishing">Phishing &amp; Deceptive Sites</string>
+    <string name="cat_scam">Fraud &amp; Scam Sites</string>
+    <string name="cat_social">Social Media</string>
+    <string name="cat_short_video">Short-form Video</string>
+    <string name="cat_piracy">Piracy &amp; Torrents</string>
+    <string name="cat_tracking">Telemetry &amp; Trackers</string>
+
+    <!-- Diagnostics -->
+    <string name="diag_title">Diagnostics &amp; Health</string>
+    <string name="diag_pass">PASS</string>
+    <string name="diag_fail">FAILED</string>
+    <string name="diag_warn">WARNING</string>
+    <string name="diag_btn_run">Run Full Self-Test</string>
+
+    <!-- Intercept & Focus -->
+    <string name="intercept_blocked_title">Site Blocked</string>
+    <string name="intercept_mind_reset">MIND RESET FOCUS</string>
+    <string name="intercept_take_breath">Take a deep breath. Clear your mind. Reset your focus.</string>
+    <string name="breathe_inhale">Inhale (4s)</string>
+    <string name="breathe_hold">Hold (4s)</string>
+    <string name="breathe_exhale">Exhale (4s)</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_export">Export Configuration</string>
+    <string name="backup_import">Import Configuration</string>
+    <string name="backup_success">Backup exported successfully</string>
+    <string name="restore_success">Configuration restored successfully</string>
 </resources>

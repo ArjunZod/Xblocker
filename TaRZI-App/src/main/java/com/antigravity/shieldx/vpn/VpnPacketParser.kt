@@ -1,9 +1,10 @@
-package com.antigravity.shieldx.vpn
+﻿package com.antigravity.shieldx.vpn
 
 import java.nio.ByteBuffer
 
 /**
- * High-performance binary packet parser for IPv4 and IPv6 TUN packets.
+ * High-performance, crash-resilient binary packet parser for IPv4 and IPv6 TUN packets.
+ * Strictly verifies bounds on headers, offsets, lengths, and handles both UDP and TCP DNS frames.
  */
 class VpnPacketParser {
 
@@ -15,40 +16,51 @@ class VpnPacketParser {
         val sourcePort: Int,
         val destPort: Int,
         val payloadOffset: Int,
-        val payloadLength: Int
+        val payloadLength: Int,
+        val isTcpDns: Boolean = false,
+        val tcpDnsLength: Int = 0
     )
 
     companion object {
         const val PROTOCOL_TCP = 6
         const val PROTOCOL_UDP = 17
         const val PORT_DNS = 53
+        const val PORT_DOT = 853
+        const val PORT_DOQ = 784
     }
 
     /**
-     * Parse raw IP packet buffer from TUN interface.
+     * Parse raw IP packet buffer from TUN interface with defensive bounds checking.
      */
     fun parse(buffer: ByteBuffer, length: Int): ParsedPacket? {
-        if (length < 20) return null
+        if (length < 20 || buffer.remaining() < 20) return null
         val position = buffer.position()
         val firstByte = buffer.get(position).toInt() and 0xFF
         val version = (firstByte ushr 4) and 0x0F
 
-        return when (version) {
-            4 -> parseIpv4(buffer, position, length)
-            6 -> parseIpv6(buffer, position, length)
-            else -> null
+        return try {
+            when (version) {
+                4 -> parseIpv4(buffer, position, length)
+                6 -> parseIpv6(buffer, position, length)
+                else -> null
+            }
+        } catch (_: Exception) {
+            null // Defensive: Malformed packets never crash the parser
         }
     }
 
     private fun parseIpv4(buffer: ByteBuffer, offset: Int, length: Int): ParsedPacket? {
         val firstByte = buffer.get(offset).toInt() and 0xFF
         val headerLength = (firstByte and 0x0F) * 4
-        if (length < headerLength + 8) return null // Need at least IP + UDP/TCP header
+        if (headerLength < 20 || length < headerLength + 8) return null
+
+        val totalIpLen = buffer.getShort(offset + 2).toInt() and 0xFFFF
+        if (totalIpLen < headerLength || totalIpLen > length) return null
 
         val protocol = buffer.get(offset + 9).toInt() and 0xFF
         val srcIp = ByteArray(4)
         val dstIp = ByteArray(4)
-        
+
         for (i in 0 until 4) {
             srcIp[i] = buffer.get(offset + 12 + i)
             dstIp[i] = buffer.get(offset + 16 + i)
@@ -58,17 +70,27 @@ class VpnPacketParser {
         val srcPort = (buffer.getShort(transportOffset).toInt() and 0xFFFF)
         val dstPort = (buffer.getShort(transportOffset + 2).toInt() and 0xFFFF)
 
-        val (payloadOffset, payloadLength) = when (protocol) {
+        val (payloadOffset, payloadLength, isTcpDns, tcpDnsLen) = when (protocol) {
             PROTOCOL_UDP -> {
                 val udpLen = buffer.getShort(transportOffset + 4).toInt() and 0xFFFF
-                Pair(transportOffset + 8, udpLen - 8)
+                if (udpLen < 8 || transportOffset + udpLen > offset + totalIpLen) return null
+                Quad(transportOffset + 8, udpLen - 8, false, 0)
             }
             PROTOCOL_TCP -> {
                 val dataOffset = ((buffer.get(transportOffset + 12).toInt() and 0xF0) ushr 4) * 4
-                val totalIpLen = buffer.getShort(offset + 2).toInt() and 0xFFFF
-                Pair(transportOffset + dataOffset, totalIpLen - headerLength - dataOffset)
+                if (dataOffset < 20 || transportOffset + dataOffset > offset + totalIpLen) return null
+                val tcpPayloadOffset = transportOffset + dataOffset
+                val tcpPayloadLen = totalIpLen - headerLength - dataOffset
+
+                // Check for TCP DNS (port 53) RFC 7766: 2-byte prefix length
+                if ((dstPort == PORT_DNS || srcPort == PORT_DNS) && tcpPayloadLen >= 2) {
+                    val dnsMsgLen = buffer.getShort(tcpPayloadOffset).toInt() and 0xFFFF
+                    Quad(tcpPayloadOffset + 2, tcpPayloadLen - 2, true, dnsMsgLen)
+                } else {
+                    Quad(tcpPayloadOffset, tcpPayloadLen, false, 0)
+                }
             }
-            else -> Pair(transportOffset, length - headerLength)
+            else -> Quad(transportOffset, length - headerLength, false, 0)
         }
 
         if (payloadOffset < 0 || payloadLength < 0 || payloadOffset + payloadLength > offset + length) {
@@ -83,7 +105,9 @@ class VpnPacketParser {
             sourcePort = srcPort,
             destPort = dstPort,
             payloadOffset = payloadOffset,
-            payloadLength = payloadLength
+            payloadLength = payloadLength,
+            isTcpDns = isTcpDns,
+            tcpDnsLength = tcpDnsLen
         )
     }
 
@@ -91,6 +115,7 @@ class VpnPacketParser {
         if (length < 40 + 8) return null
         val nextHeader = buffer.get(offset + 6).toInt() and 0xFF
         val payloadLen = buffer.getShort(offset + 4).toInt() and 0xFFFF
+        if (40 + payloadLen > length) return null
 
         val srcIp = ByteArray(16)
         val dstIp = ByteArray(16)
@@ -103,16 +128,30 @@ class VpnPacketParser {
         val srcPort = (buffer.getShort(transportOffset).toInt() and 0xFFFF)
         val dstPort = (buffer.getShort(transportOffset + 2).toInt() and 0xFFFF)
 
-        val (payloadOffset, payLength) = when (nextHeader) {
+        val (payloadOffset, payLength, isTcpDns, tcpDnsLen) = when (nextHeader) {
             PROTOCOL_UDP -> {
                 val udpLen = buffer.getShort(transportOffset + 4).toInt() and 0xFFFF
-                Pair(transportOffset + 8, udpLen - 8)
+                if (udpLen < 8 || transportOffset + udpLen > offset + 40 + payloadLen) return null
+                Quad(transportOffset + 8, udpLen - 8, false, 0)
             }
             PROTOCOL_TCP -> {
                 val dataOffset = ((buffer.get(transportOffset + 12).toInt() and 0xF0) ushr 4) * 4
-                Pair(transportOffset + dataOffset, payloadLen - dataOffset)
+                if (dataOffset < 20 || transportOffset + dataOffset > offset + 40 + payloadLen) return null
+                val tcpPayloadOffset = transportOffset + dataOffset
+                val tcpPayloadLen = payloadLen - dataOffset
+
+                if ((dstPort == PORT_DNS || srcPort == PORT_DNS) && tcpPayloadLen >= 2) {
+                    val dnsMsgLen = buffer.getShort(tcpPayloadOffset).toInt() and 0xFFFF
+                    Quad(tcpPayloadOffset + 2, tcpPayloadLen - 2, true, dnsMsgLen)
+                } else {
+                    Quad(tcpPayloadOffset, tcpPayloadLen, false, 0)
+                }
             }
-            else -> Pair(transportOffset, length - 40)
+            else -> Quad(transportOffset, length - 40, false, 0)
+        }
+
+        if (payloadOffset < 0 || payLength < 0 || payloadOffset + payLength > offset + length) {
+            return null
         }
 
         return ParsedPacket(
@@ -123,7 +162,11 @@ class VpnPacketParser {
             sourcePort = srcPort,
             destPort = dstPort,
             payloadOffset = payloadOffset,
-            payloadLength = payLength
+            payloadLength = payLength,
+            isTcpDns = isTcpDns,
+            tcpDnsLength = tcpDnsLen
         )
     }
+
+    private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 }

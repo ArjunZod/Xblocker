@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Xblocker</string>
+
+    <!-- Protection Subsystem -->
+    <string name="vpn_service_title">Xblocker రక్షణ సక్రియంగా ఉంది</string>
+    <string name="vpn_service_desc">అశ్లీల కంటెంట్, మాల్వేర్, ట్రాకర్లను ఫిల్టర్ చేయడం మరియు సేఫ్‌సెర్చ్ అమలు చేయడం</string>
+    <string name="device_admin_label">Xblocker పరికర రక్షణ</string>
+    <string name="device_admin_description">సిస్టమ్-స్థాయి అడల్ట్ ఫిల్టరింగ్‌ను అమలు చేస్తుంది, అన్‌ఇన్‌స్టాలేషన్ టాంపరింగ్‌ను నిరోధిస్తుంది మరియు VPN లాక్‌డౌన్‌ను నిర్వహిస్తుంది.</string>
+    
+    <!-- Notification Channels -->
+    <string name="channel_vpn_name">రక్షణ సేవ</string>
+    <string name="channel_vpn_desc">Xblocker DNS ఫిల్టరింగ్ మరియు ప్యాకెట్ సింక్‌హోల్ యొక్క ప్రస్తుత స్థితిని ప్రదర్శిస్తుంది</string>
+    <string name="channel_tamper_name">భద్రత &amp; ట్యాంపర్ హెచ్చరికలు</string>
+    <string name="channel_tamper_desc">రక్షణ కాన్ఫిగరేషన్, గడియారం లేదా VPN స్థితిలో మార్పులు జరిగినప్పుడు హెచ్చరిస్తుంది</string>
+    <string name="channel_streak_name">పురోగతి &amp; స్ట్రీక్స్</string>
+    <string name="channel_streak_desc">రోజువారీ సవాలు పూర్తిలు మరియు మైలురాయి నోటిఫికేషన్‌లు</string>
+
+    <!-- Dashboard & Status -->
+    <string name="status_protected">రక్షణ సక్రియం</string>
+    <string name="status_disabled">రక్షణ నిలిపివేయబడింది</string>
+    <string name="status_protected_subtitle">పరికర DNS, ఎన్‌క్రిప్టెడ్ రిసాల్వర్‌లు మరియు అడల్ట్ కంటెంట్ ఫిల్టర్ చేయబడింది</string>
+    <string name="status_disabled_subtitle">యాప్‌లు మరియు బ్రౌజర్‌లను సురక్షితం చేయడానికి ఫిల్టరింగ్‌ను ప్రారంభించండి</string>
+    <string name="security_score_title">భద్రతా స్కోరు</string>
+    <string name="btn_turn_on">ఫిల్టరింగ్ ప్రారంభించు</string>
+    <string name="btn_turn_off">ఫిల్టరింగ్ ఆపివేయి</string>
+    <string name="threats_blocked_today">ఈరోజు నిరోధించబడినవి</string>
+    <string name="clean_streak">క్లీన్ స్ట్రీక్</string>
+    <string name="uptime_clock">రక్షణ సమయం</string>
+
+    <!-- Categories -->
+    <string name="cat_adult">అడల్ట్ &amp; అసభ్యకరమైనవి</string>
+    <string name="cat_gambling">జూదం &amp; బెట్టింగ్</string>
+    <string name="cat_malware">మాల్వేర్ &amp; రాన్సమ్‌వేర్</string>
+    <string name="cat_phishing">ఫిషింగ్ &amp; మోసపూరిత సైట్‌లు</string>
+    <string name="cat_scam">స్కామ్ సైట్‌లు</string>
+    <string name="cat_social">సోషల్ మీడియా</string>
+    <string name="cat_short_video">చిన్న వీడియోలు (రీల్స్/షార్ట్స్)</string>
+    <string name="cat_piracy">పైరసీ &amp; టోరెంట్లు</string>
+    <string name="cat_tracking">టెలిమెట్రీ &amp; ట్రాకర్లు</string>
+
+    <!-- Diagnostics -->
+    <string name="diag_title">రోగనిర్ధారణ &amp; ఆరోగ్యం</string>
+    <string name="diag_pass">విజయం</string>
+    <string name="diag_fail">విఫలమైంది</string>
+    <string name="diag_warn">హెచ్చరిక</string>
+    <string name="diag_btn_run">పూర్తి స్వీయ-పరీక్ష అమలు చేయండి</string>
+
+    <!-- Intercept & Focus -->
+    <string name="intercept_blocked_title">సైట్ నిరోధించబడింది</string>
+    <string name="intercept_mind_reset">మనస్సు ప్రశాంతత &amp; ఏకాగ్రత</string>
+    <string name="intercept_take_breath">దీర్ఘ శ్వాస తీసుకోండి. మనస్సును ప్రశాంతంగా ఉంచండి. లక్ష్యంపై దృష్టి పెట్టండి.</string>
+    <string name="breathe_inhale">శ్వాస పీల్చండి (4 సెకన్లు)</string>
+    <string name="breathe_hold">ఆపండి (4 సెకన్లు)</string>
+    <string name="breathe_exhale">వదలండి (4 సెకన్లు)</string>
+
+    <!-- Backup & Restore -->
+    <string name="backup_export">కాన్ఫిగరేషన్ ఎగుమతి</string>
+    <string name="backup_import">కాన్ఫిగరేషన్ దిగుమతి</string>
+    <string name="backup_success">బ్యాకప్ విజయవంతంగా ఎగుమతి చేయబడింది</string>
+    <string name="restore_success">కాన్ఫిగరేషన్ విజయవంతంగా పునరుద్ధరించబడింది</string>
+</resources>

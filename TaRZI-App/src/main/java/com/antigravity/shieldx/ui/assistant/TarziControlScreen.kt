@@ -1,12 +1,12 @@
-package com.antigravity.shieldx.ui.assistant
+﻿package com.antigravity.shieldx.ui.assistant
 
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -18,6 +18,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,23 +29,24 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.antigravity.shieldx.backup.BackupRestoreManager
 import com.antigravity.shieldx.core.security.SecurityManager
+import com.antigravity.shieldx.learning.RewardEngine
+import com.antigravity.shieldx.tamper.PrivateDnsDetector
 import com.antigravity.shieldx.ui.components.*
 import com.antigravity.shieldx.ui.theme.*
 import kotlinx.coroutines.launch
 
 /**
- * Settings, laid out the way Android settings are: grouped rows, a plain
- * statement of each permission's purpose, and the current state on the right.
- *
- * Permission state is re-read on resume because the user grants these in system
- * Settings, so we only find out when they come back to the app.
+ * Settings and Configuration screen for Xblocker.
+ * Grouped sections for Appearance, Permissions, Security, Backup & Migration, and Diagnostics.
  */
 @Composable
 fun TarziControlScreen(
@@ -53,6 +56,7 @@ fun TarziControlScreen(
     onNavigateToApps: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -65,16 +69,12 @@ fun TarziControlScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val hasMic = remember(refresh) { context.hasPermission(Manifest.permission.RECORD_AUDIO) }
     val hasNotifications = remember(refresh) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
         } else true
     }
-    val hasOverlay = remember(refresh) { Settings.canDrawOverlays(context) }
     val ignoresBattery = remember(refresh) { context.ignoresBatteryOptimization() }
-    val hasContacts = remember(refresh) { context.hasPermission(Manifest.permission.READ_CONTACTS) }
-    val hasPhone = remember(refresh) { context.hasPermission(Manifest.permission.CALL_PHONE) }
 
     var hasAdminPin by remember(refresh) {
         mutableStateOf(securityManager.adminRecoveryController.isPinSet())
@@ -83,21 +83,19 @@ fun TarziControlScreen(
         mutableStateOf(securityManager.lockdownController.isActive())
     }
 
-    var geminiKey by remember { mutableStateOf("") }
-    var showKeyDialog by remember { mutableStateOf<KeyKind?>(null) }
+    val privateDnsDetector = remember { PrivateDnsDetector(context) }
+    val privateDnsStatus = remember(refresh) { privateDnsDetector.checkPrivateDns() }
+
+    val backupManager = remember {
+        BackupRestoreManager(context, securityManager.database, RewardEngine(context))
+    }
+
     var showPinDialog by remember { mutableStateOf(false) }
     var showLockConfirm by remember { mutableStateOf(false) }
     var generatedSecret by remember { mutableStateOf<String?>(null) }
     var showUnlock by remember { mutableStateOf(false) }
-
-    // The assistant degrades to offline commands when no model is reachable.
-    // That state has to be visible here, otherwise a rejected key just looks
-    // like the assistant being stupid.
-    var aiStatus by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        geminiKey = securityManager.configRepository.get("gemini_api_key").orEmpty()
-    }
+    var showExportDialog by remember { mutableStateOf<String?>(null) }
+    var showRestoreDialog by remember { mutableStateOf(false) }
 
     val permissions = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -158,15 +156,15 @@ fun TarziControlScreen(
             }
         }
 
-        // Security -----------------------------------------------------------
+        // Security & Anti-Tamper ---------------------------------------------
 
-        item { SectionHeader("Security") }
+        item { SectionHeader("Security & Anti-Tamper") }
         item {
             Grouped {
                 SettingRow(
                     title = "Admin PIN",
                     description = if (hasAdminPin) {
-                        "Your 4–8 digit PIN for daily protected settings (apps, rules, logs)."
+                        "Your 4-8 digit PIN for protected settings (apps, rules, logs)."
                     } else {
                         "Not set. Set a PIN to protect policy changes and logs."
                     },
@@ -183,9 +181,9 @@ fun TarziControlScreen(
                 SettingRow(
                     title = "Lockdown Mode",
                     description = if (isLocked) {
-                        "Active. Protection cannot be turned off with your PIN—only with the emergency recovery phrase."
+                        "Active. Protection cannot be turned off with your PIN - only with emergency recovery key."
                     } else {
-                        "Strict anti-relapse lock. Generates an emergency recovery key so you cannot easily turn off protection."
+                        "Strict anti-relapse lock. Generates an emergency recovery key."
                     },
                     onClick = { if (isLocked) showUnlock = true else showLockConfirm = true },
                     trailing = {
@@ -196,35 +194,64 @@ fun TarziControlScreen(
                         }
                     }
                 )
-            }
-        }
-
-        // Intelligence -------------------------------------------------------
-
-        item { SectionHeader("Content classification") }
-        item {
-            Grouped {
+                RowDivider()
                 SettingRow(
-                    title = "Gemini API key",
-                    description = "Optional. A second opinion on pages the on-device classifier is unsure about.",
-                    onClick = { showKeyDialog = KeyKind.Gemini },
+                    title = "Private DNS (DoT)",
+                    description = when (privateDnsStatus.mode) {
+                        PrivateDnsDetector.PrivateDnsMode.STRICT -> "Strict Mode (${privateDnsStatus.specifier}) - Encrypted DoT port 853 is dropped to prevent filter bypass"
+                        PrivateDnsDetector.PrivateDnsMode.OPPORTUNISTIC -> "Opportunistic / Auto - Handled via local VPN sinkhole"
+                        PrivateDnsDetector.PrivateDnsMode.OFF -> "Off - Standard wire DNS active"
+                        else -> "System Default"
+                    },
                     trailing = {
-                        if (geminiKey.isNotBlank()) RowValue("Added", Success) else RowValue("Not set")
+                        if (privateDnsStatus.potentialBypassRisk) {
+                            StatusChip("DoT Dropped", StatusTone.Neutral)
+                        } else {
+                            StatusChip("Secure", StatusTone.Positive)
+                        }
                     }
                 )
             }
         }
 
-        // More ---------------------------------------------------------------
+        // Backup & Migration -------------------------------------------------
 
-        item { SectionHeader("More") }
+        item { SectionHeader("Backup & Transfer") }
         item {
             Grouped {
-                NavRow("Routines", onNavigateToAutomations)
+                SettingRow(
+                    title = "Export Backup",
+                    description = "Export custom rules, policies, and streaks into an encrypted, versioned JSON backup",
+                    onClick = {
+                        scope.launch {
+                            val json = backupManager.exportBackupJson()
+                            showExportDialog = json
+                        }
+                    },
+                    trailing = {
+                        RowValue("Export", Accent)
+                    }
+                )
                 RowDivider()
-                NavRow("App control", onNavigateToApps)
+                SettingRow(
+                    title = "Restore from Backup",
+                    description = "Import and validate a previously exported Xblocker configuration",
+                    onClick = { showRestoreDialog = true },
+                    trailing = {
+                        RowValue("Restore", Accent)
+                    }
+                )
+            }
+        }
+
+        // Subsystems ---------------------------------------------------------
+
+        item { SectionHeader("Subsystems & Diagnostics") }
+        item {
+            Grouped {
+                NavRow("Applications & App Policies", onNavigateToApps)
                 RowDivider()
-                NavRow("Diagnostics", onNavigateToDiagnostics)
+                NavRow("System Self-Test Diagnostics", onNavigateToDiagnostics)
             }
         }
 
@@ -233,32 +260,116 @@ fun TarziControlScreen(
 
     // Dialogs ----------------------------------------------------------------
 
-    showKeyDialog?.let { kind ->
-        val current = when (kind) {
-            KeyKind.Gemini -> geminiKey
-        }
-        ApiKeyDialog(
-            title = when (kind) {
-                KeyKind.Gemini -> "Gemini API key"
-            },
-            hint = when (kind) {
-                KeyKind.Gemini ->
-                    "Optional. Sends uncertain pages to Gemini for a second opinion " +
-                        "when the on-device classifier is not sure."
-            },
-            initial = current,
-            onDismiss = { showKeyDialog = null },
-            onSave = { value ->
-                val trimmed = value.trim()
-                scope.launch {
-                    when (kind) {
-                        KeyKind.Gemini -> {
-                            securityManager.configRepository.set("gemini_api_key", trimmed)
-                            geminiKey = trimmed
-                        }
+    showExportDialog?.let { json ->
+        AlertDialog(
+            onDismissRequest = { showExportDialog = null },
+            containerColor = Surface,
+            title = { Text("Backup Configuration", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
+            text = {
+                Column {
+                    Text(
+                        "Includes custom domains, app rules, policy settings, and streak. Verified with SHA-256 integrity check.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.height(Space.sm))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .clip(Radius.sm)
+                            .background(SurfaceRaised)
+                            .padding(Space.sm)
+                    ) {
+                        Text(
+                            text = json,
+                            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                            color = TextPrimary
+                        )
                     }
                 }
-                showKeyDialog = null
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    clipboardManager.setText(AnnotatedString(json))
+                    Toast.makeText(context, "Backup copied to clipboard", Toast.LENGTH_SHORT).show()
+                    showExportDialog = null
+                }) {
+                    Text("Copy to Clipboard", color = Accent, style = MaterialTheme.typography.labelLarge)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportDialog = null }) {
+                    Text("Close", color = TextSecondary, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        )
+    }
+
+    if (showRestoreDialog) {
+        var restoreText by remember { mutableStateOf("") }
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
+        AlertDialog(
+            onDismissRequest = { showRestoreDialog = false },
+            containerColor = Surface,
+            title = { Text("Restore Configuration", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
+            text = {
+                Column {
+                    Text(
+                        "Paste your exported Xblocker JSON backup below. Integrity will be validated before applying.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                    Spacer(Modifier.height(Space.sm))
+                    OutlinedTextField(
+                        value = restoreText,
+                        onValueChange = {
+                            restoreText = it
+                            errorMessage = null
+                        },
+                        placeholder = { Text("Paste JSON here...", color = TextTertiary) },
+                        shape = Radius.sm,
+                        colors = fieldColors(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                    )
+                    errorMessage?.let { err ->
+                        Spacer(Modifier.height(Space.xs))
+                        Text(err, style = MaterialTheme.typography.bodySmall, color = Danger)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (restoreText.isBlank()) {
+                        errorMessage = "Please enter backup JSON"
+                        return@TextButton
+                    }
+                    val validated = backupManager.validateBackup(restoreText)
+                    if (validated.isFailure) {
+                        errorMessage = "Invalid or corrupted backup payload: ${validated.exceptionOrNull()?.message}"
+                        return@TextButton
+                    }
+                    scope.launch {
+                        val result = backupManager.restoreBackup(validated.getOrThrow())
+                        if (result.isSuccess) {
+                            Toast.makeText(context, "Configuration restored successfully!", Toast.LENGTH_LONG).show()
+                            showRestoreDialog = false
+                            refresh++
+                        } else {
+                            errorMessage = "Restore failed: ${result.exceptionOrNull()?.message}"
+                        }
+                    }
+                }) {
+                    Text("Validate & Restore", color = Accent, style = MaterialTheme.typography.labelLarge)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreDialog = false }) {
+                    Text("Cancel", color = TextSecondary, style = MaterialTheme.typography.labelLarge)
+                }
             }
         )
     }
@@ -281,7 +392,7 @@ fun TarziControlScreen(
             title = { Text("Turn on lockdown?", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
             text = {
                 Text(
-                    "A recovery phrase will be generated and shown once. Tarzi keeps only a " +
+                    "A recovery phrase will be generated and shown once. Xblocker keeps only a " +
                         "one-way hash of it. Without that phrase, protection cannot be turned off " +
                         "on this install.",
                     style = MaterialTheme.typography.bodyMedium,
@@ -321,8 +432,6 @@ fun TarziControlScreen(
         )
     }
 }
-
-private enum class KeyKind { Gemini }
 
 // ============================================================================
 
@@ -368,84 +477,65 @@ private fun NavRow(title: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ApiKeyDialog(
-    title: String,
-    hint: String,
-    initial: String,
+private fun SetPinDialog(
     onDismiss: () -> Unit,
     onSave: (String) -> Unit
 ) {
-    var value by remember { mutableStateOf(initial) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Surface,
-        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
-        text = {
-            Column {
-                Text(hint, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                Spacer(Modifier.height(Space.md))
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    shape = Radius.sm,
-                    colors = fieldColors(),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(value) }) {
-                Text("Save", color = Accent, style = MaterialTheme.typography.labelLarge)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = TextSecondary, style = MaterialTheme.typography.labelLarge)
-            }
-        }
-    )
-}
-
-@Composable
-private fun SetPinDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
-    val valid = pin.length in 4..8
+    var confirm by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
-        title = { Text("Set admin PIN", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
+        title = { Text("Set Admin PIN", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
         text = {
             Column {
                 Text(
-                    "Used to unlock protected settings. 4 to 8 digits.",
+                    "Enter a 4-8 digit PIN used to unlock protected settings and policies.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(Space.md))
                 OutlinedTextField(
                     value = pin,
-                    onValueChange = { pin = it.filter(Char::isDigit).take(8) },
+                    onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) pin = it },
+                    label = { Text("New PIN") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
                     shape = Radius.sm,
                     colors = fieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(Modifier.height(Space.sm))
+                OutlinedTextField(
+                    value = confirm,
+                    onValueChange = { if (it.length <= 8 && it.all { c -> c.isDigit() }) confirm = it },
+                    label = { Text("Confirm PIN") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    shape = Radius.sm,
+                    colors = fieldColors(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                error?.let {
+                    Spacer(Modifier.height(Space.xs))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = Danger)
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = valid, onClick = { onSave(pin) }) {
-                Text(
-                    "Save",
-                    color = if (valid) Accent else TextTertiary,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            TextButton(onClick = {
+                if (pin.length < 4) {
+                    error = "PIN must be at least 4 digits"
+                } else if (pin != confirm) {
+                    error = "PINs do not match"
+                } else {
+                    onSave(pin)
+                }
+            }) { Text("Save", color = Accent, style = MaterialTheme.typography.labelLarge) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
@@ -455,120 +545,86 @@ private fun SetPinDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
     )
 }
 
-/** Monospace here is functional: the phrase has to be transcribed exactly. */
 @Composable
 private fun RecoveryPhraseDialog(secret: String, onDone: () -> Unit) {
     val clipboard = LocalClipboardManager.current
-    var saved by remember { mutableStateOf(false) }
 
     AlertDialog(
-        onDismissRequest = { },
+        onDismissRequest = onDone,
         containerColor = Surface,
-        title = { Text("Recovery phrase", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
+        title = { Text("Emergency Recovery Phrase", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
         text = {
             Column {
                 Text(
-                    "Save this somewhere outside this device. It will not be shown again.",
+                    "Store this phrase in a safe place. Without it, you cannot disable lockdown.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(Space.md))
-                Row(
+                Box(
                     Modifier
                         .fillMaxWidth()
                         .clip(Radius.sm)
                         .background(SurfaceRaised)
-                        .border(1.dp, Border, Radius.sm)
                         .padding(Space.md)
                 ) {
                     Text(
                         text = secret,
-                        style = MonoText.copy(fontSize = 11.sp, lineHeight = 15.sp),
-                        color = TextPrimary,
-                        softWrap = true,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Spacer(Modifier.width(Space.sm))
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = "Copy",
-                        tint = TextSecondary,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clickable { clipboard.setText(AnnotatedString(secret)) }
-                    )
-                }
-                Spacer(Modifier.height(Space.md))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { saved = !saved }
-                ) {
-                    Checkbox(
-                        checked = saved,
-                        onCheckedChange = { saved = it },
-                        colors = CheckboxDefaults.colors(checkedColor = Accent)
-                    )
-                    Text(
-                        "I have saved this phrase",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                        color = Accent
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(enabled = saved, onClick = onDone) {
-                Text(
-                    "Done",
-                    color = if (saved) Accent else TextTertiary,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
+            TextButton(onClick = {
+                clipboard.setText(AnnotatedString(secret))
+                onDone()
+            }) { Text("Copy & Done", color = Accent, style = MaterialTheme.typography.labelLarge) }
         }
     )
 }
 
 @Composable
-private fun UnlockDialog(onDismiss: () -> Unit, onSubmit: (String) -> Boolean) {
-    var value by remember { mutableStateOf("") }
-    var isError by remember { mutableStateOf(false) }
+private fun UnlockDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Boolean
+) {
+    var candidate by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Surface,
-        title = { Text("Turn off lockdown", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
+        title = { Text("Disable Lockdown", style = MaterialTheme.typography.titleLarge, color = TextPrimary) },
         text = {
             Column {
                 Text(
-                    "Enter the recovery phrase shown when lockdown was turned on.",
+                    "Enter the emergency recovery phrase generated when lockdown was enabled.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
                 Spacer(Modifier.height(Space.md))
                 OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it; isError = false },
-                    isError = isError,
+                    value = candidate,
+                    onValueChange = { candidate = it },
+                    label = { Text("Recovery Phrase") },
+                    singleLine = true,
                     shape = Radius.sm,
                     colors = fieldColors(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 88.dp)
+                    modifier = Modifier.fillMaxWidth()
                 )
-                if (isError) {
-                    Spacer(Modifier.height(Space.sm))
-                    Text(
-                        "That phrase does not match.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Danger
-                    )
+                error?.let {
+                    Spacer(Modifier.height(Space.xs))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = Danger)
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { if (!onSubmit(value.trim())) isError = true }) {
-                Text("Unlock", color = Accent, style = MaterialTheme.typography.labelLarge)
-            }
+            TextButton(onClick = {
+                val ok = onSubmit(candidate.trim())
+                if (!ok) error = "Invalid recovery phrase"
+            }) { Text("Unlock", color = Danger, style = MaterialTheme.typography.labelLarge) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
@@ -578,19 +634,8 @@ private fun UnlockDialog(onDismiss: () -> Unit, onSubmit: (String) -> Boolean) {
     )
 }
 
-@Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = Accent,
-    unfocusedBorderColor = Border,
-    focusedTextColor = TextPrimary,
-    unfocusedTextColor = TextPrimary,
-    cursorColor = Accent
-)
-
-// ============================================================================
-
-private fun Context.hasPermission(permission: String): Boolean =
-    androidx.core.content.ContextCompat.checkSelfPermission(this, permission) ==
+private fun Context.hasPermission(p: String): Boolean =
+    androidx.core.content.ContextCompat.checkSelfPermission(this, p) ==
         android.content.pm.PackageManager.PERMISSION_GRANTED
 
 private fun Context.ignoresBatteryOptimization(): Boolean {
@@ -599,11 +644,16 @@ private fun Context.ignoresBatteryOptimization(): Boolean {
 }
 
 private fun Context.requestIgnoreBatteryOptimization() {
-    try {
-        startActivity(
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    } catch (_: Exception) {
-    }
+    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+    startActivity(intent)
 }
+
+@Composable
+private fun fieldColors(): TextFieldColors =
+    OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = Accent,
+        unfocusedBorderColor = Border,
+        focusedTextColor = TextPrimary,
+        unfocusedTextColor = TextPrimary,
+        cursorColor = Accent
+    )

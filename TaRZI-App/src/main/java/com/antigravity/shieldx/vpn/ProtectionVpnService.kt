@@ -1,4 +1,4 @@
-package com.antigravity.shieldx.vpn
+﻿package com.antigravity.shieldx.vpn
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -13,7 +13,6 @@ import androidx.core.app.NotificationCompat
 import com.antigravity.shieldx.R
 import com.antigravity.shieldx.core.model.BlockReason
 import com.antigravity.shieldx.core.model.Category
-import com.antigravity.shieldx.core.model.DeviceMode
 import com.antigravity.shieldx.core.model.PolicyDecision
 import com.antigravity.shieldx.data.local.AppDatabase
 import com.antigravity.shieldx.data.repository.AuditRepository
@@ -66,6 +65,10 @@ class ProtectionVpnService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var vpnInterface: ParcelFileDescriptor? = null
     private val isRunning = AtomicBoolean(false)
+
+    // Dedicated mutex lock for all TUN output stream writes to eliminate race conditions
+    private val tunWriteLock = Any()
+    private var tunOutputStream: FileOutputStream? = null
 
     private lateinit var database: AppDatabase
     private lateinit var domainRepository: DomainRepository
@@ -124,6 +127,22 @@ class ProtectionVpnService : VpnService() {
         return START_STICKY
     }
 
+    /**
+     * Centralized, thread-safe abstraction for writing packets to the TUN interface.
+     * Prevents raw IP frame corruption or interleaving across concurrent coroutines.
+     */
+    fun writeTunPacket(packet: ByteArray): Boolean {
+        return synchronized(tunWriteLock) {
+            val stream = tunOutputStream ?: return@synchronized false
+            try {
+                stream.write(packet)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     private fun startVpnInternal() {
         if (isRunning.get()) return
 
@@ -145,22 +164,16 @@ class ProtectionVpnService : VpnService() {
                     .setMtu(1500)
                     .setBlocking(true)
 
-                // Pull every known DoH/DoT resolver into the tunnel so the loop
-                // can drop it. Without these routes the traffic never reaches us
-                // and browser-native encrypted DNS sails straight past the filter.
+                // Route known DoH/DoT resolvers into the tunnel so the loop can drop them
                 var routedResolvers = 0
                 for (resolver in EncryptedDnsBlocker.routableEndpoints()) {
                     try {
                         builder.addRoute(resolver, 32)
                         routedResolvers++
                     } catch (_: IllegalArgumentException) {
-                        // A malformed address must not take the whole tunnel down.
                     }
                 }
 
-                // IPv6 matters here: this device is on a carrier handing out
-                // native IPv6, and the tunnel previously routed none of it, so
-                // encrypted DNS over IPv6 bypassed the filter entirely.
                 for (resolver in EncryptedDnsBlocker.routableEndpointsV6()) {
                     try {
                         builder.addRoute(resolver, 128)
@@ -169,7 +182,7 @@ class ProtectionVpnService : VpnService() {
                     }
                 }
 
-                // Never filter ourselves; doing so deadlocks our own upstream DNS.
+                // Never filter ourselves; doing so deadlocks our own upstream DNS
                 try {
                     builder.addDisallowedApplication(packageName)
                 } catch (_: Exception) {
@@ -188,10 +201,7 @@ class ProtectionVpnService : VpnService() {
                 isRunning.set(true)
                 blockRecorder.start()
 
-                // A strict Private DNS host sends every lookup over DoT to a
-                // resolver we never see, which would quietly defeat the filter.
-                // Correct it where we are allowed to; where we are not, record
-                // it so the state is visible instead of silently wrong.
+                // Enforce opportunistic mode for Private DNS if enrolled as Device Owner
                 val dnsStatus = privateDnsGuard.status()
                 if (dnsStatus.isBypassingFilter) {
                     val corrected = privateDnsGuard.enforceFilterableDns()
@@ -209,8 +219,7 @@ class ProtectionVpnService : VpnService() {
 
                 android.util.Log.i(
                     "TarziVpn",
-                    "[VPN_UP] tunnel established, " + routedResolvers +
-                        " encrypted-DNS resolvers routed for blocking"
+                    "[VPN_UP] tunnel established, $routedResolvers encrypted-DNS resolvers routed for blocking"
                 )
 
                 // Launch TUN packet processing loop
@@ -226,33 +235,40 @@ class ProtectionVpnService : VpnService() {
         serviceScope.launch(Dispatchers.IO) {
             val inputStream = FileInputStream(pfd.fileDescriptor)
             val outputStream = FileOutputStream(pfd.fileDescriptor)
+            synchronized(tunWriteLock) {
+                tunOutputStream = outputStream
+            }
+
             val buffer = ByteBuffer.allocate(32768)
 
             try {
                 while (isActive && isRunning.get()) {
                     buffer.clear()
-                    val bytesRead = inputStream.read(buffer.array())
+                    val bytesRead = try {
+                        inputStream.read(buffer.array())
+                    } catch (_: Exception) {
+                        break
+                    }
                     if (bytesRead <= 0) continue
 
                     healthMonitor.recordPacketActivity()
                     val parsed = packetParser.parse(buffer, bytesRead) ?: continue
 
-                    // Encrypted DNS: drop rather than forward. The browser's DoH
-                    // or DoT attempt then fails and it falls back to system DNS,
-                    // which is the traffic this loop can actually inspect.
+                    // Encrypted DNS & DoT/DoQ Drop: drop rather than forward
                     if (EncryptedDnsBlocker.shouldDrop(parsed.destIp, parsed.destPort, parsed.protocol)) {
                         blockRecorder.record(
                             target = parsed.destIp.joinToString(".") { (it.toInt() and 0xFF).toString() },
                             category = Category.OTHER_EXPLICIT,
                             reason = BlockReason.SAFESEARCH_ENFORCEMENT,
-                            detail = "Encrypted DNS bypass blocked (port " + parsed.destPort + ")"
+                            detail = "Encrypted DNS bypass blocked (port ${parsed.destPort})"
                         )
                         continue
                     }
 
-                    // Process DNS UDP requests
-                    if (parsed.protocol == VpnPacketParser.PROTOCOL_UDP && parsed.destPort == VpnPacketParser.PORT_DNS) {
-                        val dnsQuery = dnsFilter.parseQuery(buffer.array(), parsed.payloadOffset, parsed.payloadLength)
+                    // Process DNS requests (UDP port 53 or TCP port 53)
+                    if (parsed.destPort == VpnPacketParser.PORT_DNS) {
+                        val isTcp = parsed.protocol == VpnPacketParser.PROTOCOL_TCP
+                        val dnsQuery = dnsFilter.parseQuery(buffer.array(), parsed.payloadOffset, parsed.payloadLength, isTcp = isTcp)
                         if (dnsQuery != null) {
                             val policy = policyRepository.getPolicy()
                             val evalResult = dnsFilter.evaluate(dnsQuery, safeSearchEnabled = policy.safeSearchEnabled)
@@ -265,14 +281,10 @@ class ProtectionVpnService : VpnService() {
                                         reason = evalResult.reason ?: BlockReason.KNOWN_ADULT_DOMAIN,
                                         detail = "DNS query blocked and sinkholed"
                                     )
-                                    // One page can fan out into dozens of
-                                    // blocked lookups, so this is rate limited
-                                    // to one screen per quiet period.
                                     if (learningProgress.shouldShowNow()) {
                                         learningProgress.noteShown()
                                         showBlockScreen()
                                     }
-                                    // Synthesize sinkhole response
                                     val responseIpPacket = dnsFilter.wrapIpUdp(
                                         srcIp = parsed.destIp,
                                         dstIp = parsed.sourceIp,
@@ -281,10 +293,9 @@ class ProtectionVpnService : VpnService() {
                                         dnsPayload = evalResult.responseBytes!!,
                                         ipVersion = parsed.ipVersion
                                     )
-                                    outputStream.write(responseIpPacket)
+                                    writeTunPacket(responseIpPacket)
                                 }
-                                PolicyDecision.RESTRICT -> {
-                                    // SafeSearch rewrite
+                                PolicyDecision.RESTRICT, PolicyDecision.SAFESEARCH -> {
                                     val responseIpPacket = dnsFilter.wrapIpUdp(
                                         srcIp = parsed.destIp,
                                         dstIp = parsed.sourceIp,
@@ -293,20 +304,10 @@ class ProtectionVpnService : VpnService() {
                                         dnsPayload = evalResult.responseBytes!!,
                                         ipVersion = parsed.ipVersion
                                     )
-                                    outputStream.write(responseIpPacket)
+                                    writeTunPacket(responseIpPacket)
                                 }
-                                PolicyDecision.ALLOW, PolicyDecision.UNCERTAIN -> {
-                                    // Forward to upstream secure family DNS.
-                                    //
-                                    // Each in-flight query gets its own socket. A
-                                    // single socket shared across concurrent
-                                    // coroutines - the previous approach - lets one
-                                    // query's receive() steal another's response,
-                                    // which times out the loser after 3 seconds and
-                                    // forces the OS resolver to retry. Under normal
-                                    // multi-app DNS load that reads as "the internet
-                                    // got slower" even though no bulk traffic is
-                                    // actually routed through this tunnel.
+                                PolicyDecision.ALLOW, PolicyDecision.UNCERTAIN, PolicyDecision.AUDIT_ONLY -> {
+                                    // Forward to upstream secure family DNS (Cloudflare 1.1.1.3)
                                     launch(Dispatchers.IO) {
                                         var querySocket: DatagramSocket? = null
                                         try {
@@ -338,17 +339,16 @@ class ProtectionVpnService : VpnService() {
                                                 dnsPayload = upstreamDnsPayload,
                                                 ipVersion = parsed.ipVersion
                                             )
-                                            synchronized(outputStream) {
-                                                outputStream.write(responseIpPacket)
-                                            }
+                                            writeTunPacket(responseIpPacket)
                                         } catch (_: Exception) {
-                                            // Upstream timeout or network drop; the
-                                            // requesting app's own resolver retry
-                                            // logic takes over from here.
+                                            // Timeout / network retry
                                         } finally {
                                             runCatching { querySocket?.close() }
                                         }
                                     }
+                                }
+                                else -> {
+                                    // Default safe drop or allow
                                 }
                             }
                         }
@@ -359,22 +359,20 @@ class ProtectionVpnService : VpnService() {
                     healthMonitor.recordServiceCrash("TUN loop exception: ${e.message}")
                 }
             } finally {
+                synchronized(tunWriteLock) {
+                    tunOutputStream = null
+                }
                 runCatching { inputStream.close() }
                 runCatching { outputStream.close() }
             }
         }
     }
 
-    /**
-     * Brings up the lesson screen in place of the browser's error page. Fails
-     * quietly: on newer Android a background start can be refused, and a
-     * blocked request must still be blocked even when nothing can be shown.
-     */
     private fun showBlockScreen() {
         runCatching {
-            val intent = android.content.Intent(this, com.antigravity.shieldx.ui.blocked.BlockInterceptActivity::class.java)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                .addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val intent = Intent(this, com.antigravity.shieldx.ui.blocked.BlockInterceptActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             startActivity(intent)
         }
     }
@@ -383,6 +381,9 @@ class ProtectionVpnService : VpnService() {
         isRunning.set(false)
         _isRunningFlow.value = false
         healthMonitor.stop()
+        synchronized(tunWriteLock) {
+            tunOutputStream = null
+        }
         try {
             vpnInterface?.close()
             vpnInterface = null

@@ -1,4 +1,4 @@
-package com.antigravity.shieldx.apps
+﻿package com.antigravity.shieldx.apps
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -10,6 +10,18 @@ import com.antigravity.shieldx.device.DeviceOwnerController
 import com.antigravity.shieldx.device.RestrictionController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Predefined Application Groups for bulk policy enforcement.
+ */
+enum class AppGroup(val displayName: String) {
+    ALL_BROWSERS("All Web Browsers"),
+    ALL_SOCIAL_MEDIA("All Social Media"),
+    ALL_MESSAGING("All Messaging Apps"),
+    ALL_GAMING("All Games"),
+    ALL_VPN_BYPASS("All VPN & Proxy Apps")
+}
 
 /**
  * Registry of known browser packages, custom tabs, and anonymizing bypass apps.
@@ -41,15 +53,44 @@ object BrowserRegistry {
         "org.torproject.torbrowser",
         "org.torproject.torbrowser_alpha",
         "org.torproject.android",
-        "org.havenapp.main"
+        "org.havenapp.main",
+        "com.wireguard.android",
+        "org.openvpn.openvpn",
+        "de.blinkt.openvpn",
+        "com.cloudflare.onedotonedotonedotone",
+        "com.psiphon3.subscription",
+        "com.tunnelbear.android",
+        "com.nordvpn.android",
+        "com.expressvpn.vpn",
+        "ch.protonvpn.android"
+    )
+
+    val SOCIAL_APPS = setOf(
+        "com.instagram.android",
+        "com.twitter.android",
+        "com.zhiliaoapp.musically", // TikTok
+        "com.snapchat.android",
+        "com.reddit.frontpage",
+        "com.facebook.katana",
+        "com.pinterest"
+    )
+
+    val MESSAGING_APPS = setOf(
+        "org.telegram.messenger",
+        "com.whatsapp",
+        "com.discord",
+        "org.thoughtcrime.securesms", // Signal
+        "com.facebook.orca" // Messenger
     )
 
     fun isBrowser(packageName: String): Boolean = KNOWN_BROWSERS.contains(packageName)
     fun isAnonymizingBypassApp(packageName: String): Boolean = ANONYMIZING_BYPASS_APPS.contains(packageName)
+    fun isSocialApp(packageName: String): Boolean = SOCIAL_APPS.any { packageName.startsWith(it) }
+    fun isMessagingApp(packageName: String): Boolean = MESSAGING_APPS.any { packageName.startsWith(it) }
 }
 
 /**
- * Scanner for installed applications on the device.
+ * Scanner and in-memory cache for installed applications on the device.
  */
 class AppScanner(private val context: Context) {
 
@@ -58,48 +99,54 @@ class AppScanner(private val context: Context) {
         val appLabel: String,
         val isSystem: Boolean,
         val isBrowser: Boolean,
-        val category: String
+        val category: String,
+        val group: AppGroup? = null
     )
 
-    suspend fun scanInstalledApps(): List<ScannedApp> = withContext(Dispatchers.IO) {
+    // In-memory cache for fast UID/package lookups without constant PackageManager overhead
+    private val appCache = ConcurrentHashMap<String, ScannedApp>()
+
+    suspend fun scanInstalledApps(forceRefresh: Boolean = false): List<ScannedApp> = withContext(Dispatchers.IO) {
+        if (!forceRefresh && appCache.isNotEmpty()) {
+            return@withContext appCache.values.toList().sortedBy { it.appLabel.lowercase() }
+        }
+
         val pm = context.packageManager
         val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
         val result = mutableListOf<ScannedApp>()
 
         for (app in installedApps) {
             val pkg = app.packageName
-            // Skip self
-            if (pkg == context.packageName) continue
+            if (pkg == context.packageName) continue // Skip self
 
             val label = app.loadLabel(pm).toString()
             val isSystem = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
             val isBrowser = BrowserRegistry.isBrowser(pkg)
 
-            val category = when {
-                BrowserRegistry.isAnonymizingBypassApp(pkg) -> "BYPASS_APP"
-                isBrowser -> "BROWSER"
-                isSystem -> "SYSTEM"
-                isSocialApp(pkg) -> "SOCIAL"
-                else -> "UTILITY"
+            val (category, group) = when {
+                BrowserRegistry.isAnonymizingBypassApp(pkg) -> Pair("BYPASS_APP", AppGroup.ALL_VPN_BYPASS)
+                isBrowser -> Pair("BROWSER", AppGroup.ALL_BROWSERS)
+                BrowserRegistry.isSocialApp(pkg) -> Pair("SOCIAL", AppGroup.ALL_SOCIAL_MEDIA)
+                BrowserRegistry.isMessagingApp(pkg) -> Pair("MESSAGING", AppGroup.ALL_MESSAGING)
+                isSystem -> Pair("SYSTEM", null)
+                else -> Pair("UTILITY", null)
             }
 
-            result.add(
-                ScannedApp(
-                    packageName = pkg,
-                    appLabel = label,
-                    isSystem = isSystem,
-                    isBrowser = isBrowser,
-                    category = category
-                )
+            val scanned = ScannedApp(
+                packageName = pkg,
+                appLabel = label,
+                isSystem = isSystem,
+                isBrowser = isBrowser,
+                category = category,
+                group = group
             )
+            appCache[pkg] = scanned
+            result.add(scanned)
         }
         result.sortedBy { it.appLabel.lowercase() }
     }
 
-    private fun isSocialApp(pkg: String): Boolean {
-        val socialPrefixes = listOf("com.instagram", "com.twitter", "com.reddit", "com.snapchat", "com.tiktok", "com.discord", "org.telegram")
-        return socialPrefixes.any { pkg.startsWith(it) }
-    }
+    fun getCachedApp(packageName: String): ScannedApp? = appCache[packageName]
 }
 
 /**
@@ -108,7 +155,8 @@ class AppScanner(private val context: Context) {
 class AppPolicyEngine(
     private val appPolicyRepository: AppPolicyRepository,
     private val restrictionController: RestrictionController,
-    private val deviceOwnerController: DeviceOwnerController
+    private val deviceOwnerController: DeviceOwnerController,
+    private val appScanner: AppScanner
 ) {
 
     suspend fun evaluateAndApplyPolicy(appRule: AppRuleEntity) = withContext(Dispatchers.IO) {
@@ -120,13 +168,30 @@ class AppPolicyEngine(
             reason = appRule.reason
         )
 
-        // If in Managed Mode (Device Owner), enforce suspension if BLOCKED
+        // If running as Device Owner, enforce application suspension when BLOCKED
         if (deviceOwnerController.isDeviceOwner()) {
             when (appRule.policy) {
                 AppPolicy.BLOCKED -> restrictionController.suspendPackage(appRule.packageName, true)
                 AppPolicy.ALLOWED, AppPolicy.RESTRICTED, AppPolicy.SYSTEM_EXEMPT -> restrictionController.suspendPackage(appRule.packageName, false)
-                AppPolicy.UNKNOWN -> { /* Default allow with network monitoring */ }
+                AppPolicy.UNKNOWN -> { /* Default monitor */ }
             }
+        }
+    }
+
+    /**
+     * Applies a uniform policy across all applications within an AppGroup.
+     */
+    suspend fun applyGroupPolicy(group: AppGroup, policy: AppPolicy) = withContext(Dispatchers.IO) {
+        val apps = appScanner.scanInstalledApps().filter { it.group == group }
+        for (app in apps) {
+            val rule = AppRuleEntity(
+                packageName = app.packageName,
+                appLabel = app.appLabel,
+                category = app.category,
+                policy = policy,
+                reason = "GROUP_POLICY_${group.name}"
+            )
+            evaluateAndApplyPolicy(rule)
         }
     }
 }

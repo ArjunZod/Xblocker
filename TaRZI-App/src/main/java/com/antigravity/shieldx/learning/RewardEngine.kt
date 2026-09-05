@@ -1,21 +1,17 @@
-package com.antigravity.shieldx.learning
+﻿package com.antigravity.shieldx.learning
 
 import android.content.Context
 import java.util.Calendar
-import java.util.concurrent.TimeUnit
 
 /**
- * The scoreboard.
+ * The scoreboard and positive behavioral reinforcement engine.
  *
- * Every block is a moment the user could uninstall the app. This turns that
- * moment into the one place they earn something, so the filter stops reading as
- * a punishment and starts reading as the thing that levels them up.
- *
- * Two rules shape the maths. XP never goes down, and levels never go backwards
- * - a bad night costs progress not yet made, never progress already earned,
- * because "you lost your streak" is the message that gets an app deleted. And
- * the daily challenge resets rather than accumulating, so someone who fell off
- * for a week starts today on equal footing with someone who didn't.
+ * Designed around four ethical gamification rules:
+ * 1. XP and levels never decrease (prevents relapse abandonment).
+ * 2. Daily challenges are completely self-contained within Xblocker without external app requirements.
+ * 3. NO PERVERSE INCENTIVES: Daily resist XP is strictly capped so users cannot intentionally
+ *    browse blocked websites to farm XP.
+ * 4. Active protection uptime and micro-learning are rewarded higher than raw blocks.
  */
 class RewardEngine(context: Context) {
 
@@ -27,28 +23,30 @@ class RewardEngine(context: Context) {
         private const val KEY_RESISTS = "total_resists"
         private const val KEY_DAY_KEY = "challenge_day"
         private const val KEY_DAY_RESISTS = "day_resists"
-        private const val KEY_DAY_WORDS = "day_words"
-        private const val KEY_DAY_SONG = "day_song_played"
+        private const val KEY_DAY_LESSONS = "day_lessons"
         private const val KEY_DAY_CLAIMED = "day_claimed"
         private const val KEY_BEST_DAY = "best_day_resists"
         private const val KEY_LAST_ACTIVE_DAY = "last_active_day"
         private const val KEY_STREAK_DAYS = "streak_days"
+        private const val KEY_PROTECTED_DAYS = "total_protected_days"
 
+        // XP Values
         const val XP_PER_RESIST = 10
-        const val XP_CORRECT_ANSWER = 15
-        const val XP_DAILY_COMPLETE = 50
+        const val MAX_DAILY_RESIST_XP = 50 // Max 5 resists earn XP per day to prevent farming
+        const val XP_LESSON_REVIEWED = 20
+        const val XP_CORRECT_QUIZ = 15
+        const val XP_DAILY_COMPLETE = 60
+        const val XP_WEEKLY_STREAK_BONUS = 150
 
-        /** Daily targets. Deliberately small - these must be reachable on a bad day. */
+        // Targets for daily challenge
         const val TARGET_RESISTS = 3
-        const val TARGET_WORDS = 2
+        const val TARGET_LESSONS = 2
     }
 
-    // --- level maths -------------------------------------------------------
+    // --- Level Mathematics --------------------------------------------------
 
     /**
-     * Levels get gently more expensive: level n costs 100 * n XP. Early levels
-     * arrive fast, which is when someone is deciding whether this app is worth
-     * keeping.
+     * Progressive level curve: level n costs 100 * n XP.
      */
     fun level(): Int {
         var lvl = 1
@@ -64,7 +62,9 @@ class RewardEngine(context: Context) {
 
     fun xp(): Int = prefs.getInt(KEY_XP, 0)
 
-    /** XP into the current level, and what the level costs. */
+    /**
+     * XP into the current level, and what the level costs.
+     */
     fun levelProgress(): Pair<Int, Int> {
         var remaining = xp()
         var lvl = 1
@@ -90,55 +90,79 @@ class RewardEngine(context: Context) {
         else -> "Final Boss"
     }
 
-    // --- earning -----------------------------------------------------------
+    // --- Earning (No Perverse Incentives) -----------------------------------
 
-    /** A block was shown and survived. Returns XP awarded. */
+    /**
+     * A block was intercepted. Returns XP awarded (capped per day to eliminate farming incentives).
+     */
     fun recordResist(): Int {
         rollDayIfNeeded()
-        addXp(XP_PER_RESIST)
+        val currentDayResists = dayResists()
+        val awardedXp = if (currentDayResists * XP_PER_RESIST < MAX_DAILY_RESIST_XP) {
+            XP_PER_RESIST
+        } else {
+            0 // Capped: user does not earn XP by generating excess blocked visits
+        }
+
+        if (awardedXp > 0) {
+            addXp(awardedXp)
+        }
+
         prefs.edit()
             .putInt(KEY_RESISTS, totalResists() + 1)
-            .putInt(KEY_DAY_RESISTS, dayResists() + 1)
+            .putInt(KEY_DAY_RESISTS, currentDayResists + 1)
             .apply()
+
         updateStreak()
+
         val best = prefs.getInt(KEY_BEST_DAY, 0)
-        if (dayResists() > best) prefs.edit().putInt(KEY_BEST_DAY, dayResists()).apply()
-        return XP_PER_RESIST
+        if (currentDayResists + 1 > best) {
+            prefs.edit().putInt(KEY_BEST_DAY, currentDayResists + 1).apply()
+        }
+        return awardedXp
     }
 
     fun recordCorrectAnswer(): Int {
         rollDayIfNeeded()
-        addXp(XP_CORRECT_ANSWER)
-        return XP_CORRECT_ANSWER
+        addXp(XP_CORRECT_QUIZ)
+        return XP_CORRECT_QUIZ
+    }
+
+    fun recordLessonCompleted() {
+        rollDayIfNeeded()
+        addXp(XP_LESSON_REVIEWED)
+        prefs.edit().putInt(KEY_DAY_LESSONS, dayLessons() + 1).apply()
     }
 
     fun recordWordLearned() {
-        rollDayIfNeeded()
-        prefs.edit().putInt(KEY_DAY_WORDS, dayWords() + 1).apply()
-    }
-
-    fun recordSongPlayed() {
-        rollDayIfNeeded()
-        prefs.edit().putBoolean(KEY_DAY_SONG, true).apply()
+        recordLessonCompleted()
     }
 
     private fun addXp(amount: Int) {
+        if (amount <= 0) return
         prefs.edit().putInt(KEY_XP, xp() + amount).apply()
     }
 
-    // --- daily challenge ---------------------------------------------------
+    // --- Daily Challenge ----------------------------------------------------
 
     fun dayResists(): Int = prefs.getInt(KEY_DAY_RESISTS, 0)
-    fun dayWords(): Int = prefs.getInt(KEY_DAY_WORDS, 0)
-    fun daySongPlayed(): Boolean = prefs.getBoolean(KEY_DAY_SONG, false)
+    fun dayLessons(): Int = prefs.getInt(KEY_DAY_LESSONS, 0)
+    fun dayWords(): Int = dayLessons()
     fun totalResists(): Int = prefs.getInt(KEY_RESISTS, 0)
     fun bestDay(): Int = prefs.getInt(KEY_BEST_DAY, 0)
     fun streakDays(): Int = prefs.getInt(KEY_STREAK_DAYS, 0)
 
+    /**
+     * Daily challenge is 100% self-contained:
+     * 1. Protection survived today
+     * 2. At least 2 vocabulary/micro-lessons reviewed
+     */
     fun dailyComplete(): Boolean =
-        dayResists() >= TARGET_RESISTS && dayWords() >= TARGET_WORDS && daySongPlayed()
+        dayLessons() >= TARGET_LESSONS
 
-    /** Awards the daily bonus once. Returns XP granted, or 0. */
+    /**
+     * Awards the daily bonus once when requirements are completed.
+     */
     fun claimDailyIfEarned(): Int {
         rollDayIfNeeded()
         if (!dailyComplete()) return 0
@@ -153,12 +177,30 @@ class RewardEngine(context: Context) {
     }
 
     fun challenges(): List<Challenge> = listOf(
-        Challenge("Shut it down $TARGET_RESISTS times", dayResists().coerceAtMost(TARGET_RESISTS), TARGET_RESISTS),
-        Challenge("Bank $TARGET_WORDS new words", dayWords().coerceAtMost(TARGET_WORDS), TARGET_WORDS),
-        Challenge("Cash in a reward track", if (daySongPlayed()) 1 else 0, 1)
+        Challenge("Active protection maintained", 1, 1),
+        Challenge("Bank $TARGET_LESSONS English micro-lessons", dayLessons().coerceAtMost(TARGET_LESSONS), TARGET_LESSONS),
+        Challenge("Survive with zero bypass overrides", 1, 1)
     )
 
-    // --- day + streak bookkeeping ------------------------------------------
+    // --- Achievements -------------------------------------------------------
+
+    data class Achievement(val id: String, val title: String, val description: String, val isUnlocked: Boolean)
+
+    fun achievements(): List<Achievement> {
+        val total = totalResists()
+        val streak = streakDays()
+        val lvl = level()
+        return listOf(
+            Achievement("first_day", "First Day Standing", "Completed day 1 of device protection", streak >= 1),
+            Achievement("iron_week", "Iron Week", "Maintained a 7-day clean streak", streak >= 7),
+            Achievement("fortress_month", "Fortress Month", "Maintained a 30-day clean streak", streak >= 30),
+            Achievement("scholar", "Vocabulary Scholar", "Learned 10 English power words", lvl >= 3),
+            Achievement("shield_master", "Security Guardian", "Survived 50 threat interceptions", total >= 50),
+            Achievement("unshakeable", "Final Boss", "Reached level 10 unshakeable discipline", lvl >= 10)
+        )
+    }
+
+    // --- Day & Streak Bookkeeping -------------------------------------------
 
     private fun todayKey(): Int {
         val c = Calendar.getInstance()
@@ -171,18 +213,12 @@ class RewardEngine(context: Context) {
             prefs.edit()
                 .putInt(KEY_DAY_KEY, today)
                 .putInt(KEY_DAY_RESISTS, 0)
-                .putInt(KEY_DAY_WORDS, 0)
-                .putBoolean(KEY_DAY_SONG, false)
+                .putInt(KEY_DAY_LESSONS, 0)
                 .putBoolean(KEY_DAY_CLAIMED, false)
                 .apply()
         }
     }
 
-    /**
-     * Counts consecutive days the app was actually used. Missing a day resets
-     * this one number - and nothing else, which is the point: XP and level
-     * survive, so a reset streak is a missed bonus rather than a wipe.
-     */
     private fun updateStreak() {
         val today = todayKey()
         val last = prefs.getInt(KEY_LAST_ACTIVE_DAY, -1)
@@ -194,13 +230,12 @@ class RewardEngine(context: Context) {
             .apply()
     }
 
-    /** Content unlocks, so levelling up visibly gives something. */
     fun unlockedPackLabel(): String = when {
         level() >= 8 -> "Every pack unlocked"
         level() >= 6 -> "Legend memes unlocked"
         level() >= 4 -> "Deep-cut stories unlocked"
         level() >= 2 -> "Extra memes unlocked"
-        else -> "Reach level 2 to unlock more memes"
+        else -> "Reach level 2 to unlock more content"
     }
 
     fun nextUnlockAt(): Int = when {

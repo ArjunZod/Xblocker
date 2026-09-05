@@ -1,23 +1,19 @@
-package com.antigravity.shieldx.policy
+﻿package com.antigravity.shieldx.policy
 
 import java.net.InetAddress
 
 /**
  * Enforces SafeSearch at the DNS layer across major search engines and media platforms.
- * Returns CNAME overrides or explicit IP redirections.
+ * Returns CNAME overrides or explicit IP redirections only for providers with verified,
+ * official SafeSearch VIP endpoints that do not cause TLS certificate mismatches.
  *
- * Coverage:
- * - Google (all ccTLDs)         → forcesafesearch.google.com
- * - YouTube                     → restrict.youtube.com
- * - Bing (all subdomains)       → strict.bing.com
- * - DuckDuckGo                  → safe.duckduckgo.com
- * - Yahoo / Yahoo Japan         → safe.search.yahoo.com
- * - Yandex (all domains)        → familysearch.yandex.ru
- * - Ecosia                      → DNS-level redirect (same as Google SafeSearch VIP)
- * - Qwant                       → DNS-level redirect
- * - Brave Search                → DNS-level redirect
- * - Startpage                   → DNS-level redirect
- * - Pixabay / Pexels            → DNS-level redirect (stock image NSFW filtering)
+ * Official Coverage:
+ * - Google (all ccTLDs)   -> forcesafesearch.google.com (216.239.38.120)
+ * - YouTube               -> restrict.youtube.com (216.239.38.119)
+ * - Bing (all subdomains) -> strict.bing.com (204.79.197.220)
+ * - DuckDuckGo            -> safe.duckduckgo.com (52.142.124.215)
+ * - Yahoo / Yahoo Japan   -> safe.search.yahoo.com (87.248.98.8)
+ * - Yandex (all domains)  -> familysearch.yandex.ru (213.180.193.56)
  */
 class SafeSearchEnforcer {
 
@@ -29,35 +25,32 @@ class SafeSearchEnforcer {
     )
 
     companion object {
-        // ── Google SafeSearch ────────────────────────────────────────────
+        // Google SafeSearch
         private val GOOGLE_SAFE_SEARCH_IPV4 = byteArrayOf(216.toByte(), 239.toByte(), 38.toByte(), 120.toByte())
         private val GOOGLE_SAFE_SEARCH_IPV6 = InetAddress.getByName("2001:4860:4802:32::78").address
 
-        // ── YouTube Restricted Mode ─────────────────────────────────────
+        // YouTube Restricted Mode
         private val YOUTUBE_RESTRICT_IPV4 = byteArrayOf(216.toByte(), 239.toByte(), 38.toByte(), 119.toByte())
         private val YOUTUBE_RESTRICT_IPV6 = InetAddress.getByName("2001:4860:4802:32::77").address
 
-        // ── Bing Strict ─────────────────────────────────────────────────
+        // Bing Strict
         private val BING_STRICT_IPV4 = byteArrayOf(204.toByte(), 79.toByte(), 197.toByte(), 220.toByte())
         private val BING_STRICT_IPV6: ByteArray? = null
 
-        // ── DuckDuckGo ──────────────────────────────────────────────────
+        // DuckDuckGo Safe
         private val DUCKDUCKGO_SAFE_IPV4 = byteArrayOf(52.toByte(), 142.toByte(), 124.toByte(), 215.toByte())
         private val DUCKDUCKGO_SAFE_IPV6: ByteArray? = null
 
-        // ── Yahoo ───────────────────────────────────────────────────────
-        // safe.search.yahoo.com resolves to this VIP
+        // Yahoo Safe (safe.search.yahoo.com)
         private val YAHOO_SAFE_IPV4 = byteArrayOf(87.toByte(), 248.toByte(), 98.toByte(), 8.toByte())
         private val YAHOO_SAFE_IPV6: ByteArray? = null
 
-        // ── Yandex Family ───────────────────────────────────────────────
-        // familysearch.yandex.ru → 213.180.193.56
+        // Yandex Family (familysearch.yandex.ru)
         private val YANDEX_FAMILY_IPV4 = byteArrayOf(213.toByte(), 180.toByte(), 193.toByte(), 56.toByte())
         private val YANDEX_FAMILY_IPV6: ByteArray? = null
 
         /**
          * Google ccTLD suffixes. Covers google.co.in, google.co.uk, google.com.au, etc.
-         * We match by checking the domain ends with one of these after "google".
          */
         private val GOOGLE_CCTLDS = setOf(
             "com", "co.in", "co.uk", "co.jp", "co.kr", "co.id", "co.za",
@@ -71,10 +64,21 @@ class SafeSearchEnforcer {
             "ae", "il", "vn", "th", "la", "mm", "np", "lk", "mv",
             "ke", "tz", "ug", "gh", "cm", "sn", "ci", "dz", "ma", "tn"
         )
+
+        /**
+         * Search engines that lack official SafeSearch VIP endpoints.
+         * Never rewrite these to Google IP to avoid SSL certificate errors.
+         */
+        private val UNENFORCEABLE_SEARCH_ENGINES = setOf(
+            "search.brave.com",
+            "ecosia.org",
+            "qwant.com",
+            "startpage.com"
+        )
     }
 
     /**
-     * Check if a requested query domain matches a search engine that requires SafeSearch rewrite.
+     * Check if a requested query domain matches an official search engine that requires SafeSearch rewrite.
      */
     fun getOverride(domain: String, isIpv6Requested: Boolean = false): SafeSearchOverride? {
         val host = domain.trim().lowercase()
@@ -139,59 +143,17 @@ class SafeSearchEnforcer {
             )
         }
 
-        // 7. Ecosia — no official SafeSearch VIP, so we redirect to Google's
-        //    SafeSearch IP which returns a benign landing. The DNS-level block
-        //    forces the query through Google SafeSearch instead.
-        if (host == "ecosia.org" || host.endsWith(".ecosia.org")) {
-            return SafeSearchOverride(
-                originalDomain = host,
-                targetCname = "forcesafesearch.google.com",
-                targetIpV4 = GOOGLE_SAFE_SEARCH_IPV4,
-                targetIpV6 = if (isIpv6Requested) GOOGLE_SAFE_SEARCH_IPV6 else null
-            )
-        }
-
-        // 8. Qwant
-        if (host == "qwant.com" || host.endsWith(".qwant.com")) {
-            return SafeSearchOverride(
-                originalDomain = host,
-                targetCname = "forcesafesearch.google.com",
-                targetIpV4 = GOOGLE_SAFE_SEARCH_IPV4,
-                targetIpV6 = if (isIpv6Requested) GOOGLE_SAFE_SEARCH_IPV6 else null
-            )
-        }
-
-        // 9. Brave Search
-        if (host == "search.brave.com") {
-            return SafeSearchOverride(
-                originalDomain = host,
-                targetCname = "forcesafesearch.google.com",
-                targetIpV4 = GOOGLE_SAFE_SEARCH_IPV4,
-                targetIpV6 = if (isIpv6Requested) GOOGLE_SAFE_SEARCH_IPV6 else null
-            )
-        }
-
-        // 10. Startpage
-        if (host == "startpage.com" || host.endsWith(".startpage.com")) {
-            return SafeSearchOverride(
-                originalDomain = host,
-                targetCname = "forcesafesearch.google.com",
-                targetIpV4 = GOOGLE_SAFE_SEARCH_IPV4,
-                targetIpV6 = if (isIpv6Requested) GOOGLE_SAFE_SEARCH_IPV6 else null
-            )
-        }
-
-        // 11. Searx instances (common self-hosted meta-search)
-        if (host.contains("searx") || host.contains("searxng")) {
-            return SafeSearchOverride(
-                originalDomain = host,
-                targetCname = "forcesafesearch.google.com",
-                targetIpV4 = GOOGLE_SAFE_SEARCH_IPV4,
-                targetIpV6 = if (isIpv6Requested) GOOGLE_SAFE_SEARCH_IPV6 else null
-            )
-        }
-
         return null
+    }
+
+    /**
+     * Checks if this host is a search engine without official SafeSearch VIPs.
+     * The policy engine can decide to block or allow+audit based on user configuration.
+     */
+    fun isUnenforceableSearchEngine(domain: String): Boolean {
+        val host = domain.trim().lowercase()
+        return UNENFORCEABLE_SEARCH_ENGINES.any { host == it || host.endsWith(".$it") } ||
+                host.contains("searx") || host.contains("searxng")
     }
 
     private fun isGoogleSearchHost(host: String): Boolean {
@@ -201,7 +163,6 @@ class SafeSearchEnforcer {
             if (parts.size >= 2 && parts[parts.size - 2] == "google") return true
             if (parts.size >= 3 && parts[parts.size - 3] == "google") return true
         }
-        // Match ccTLD variants: www.google.co.in, google.com.br, etc.
         for (tld in GOOGLE_CCTLDS) {
             if (host == "google.$tld" || host == "www.google.$tld") return true
         }
@@ -224,10 +185,8 @@ class SafeSearchEnforcer {
     private fun isYahooSearchHost(host: String): Boolean {
         if (host == "search.yahoo.com" || host.endsWith(".search.yahoo.com")) return true
         if (host == "yahoo.com" || host == "www.yahoo.com") return true
-        // Yahoo Japan
         if (host == "search.yahoo.co.jp" || host.endsWith(".search.yahoo.co.jp")) return true
         if (host == "yahoo.co.jp" || host == "www.yahoo.co.jp") return true
-        // Other Yahoo ccTLDs
         if (host.matches(Regex("""(www\.)?yahoo\.[a-z]{2,3}(\.[a-z]{2})?"""))) return true
         return false
     }

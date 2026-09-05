@@ -1,35 +1,58 @@
-package com.antigravity.shieldx.core.model
+﻿package com.antigravity.shieldx.core.model
 
 /**
- * Categorization of content and domains according to adult protection taxonomy.
+ * Categorization of content and domains across protection taxonomy.
  */
-enum class Category {
-    PORNOGRAPHY,
-    NUDITY,
-    SEXUAL_SERVICES,
-    ADULT_DATING,
-    CAM,
-    EXPLICIT_STREAMING,
-    ADULT_SOCIAL,
-    ADULT_FORUM,
-    ADULT_SEARCH,
-    SEXUAL_HEALTH_EXPLICIT,
-    NSFW_MEDIA,
-    OTHER_EXPLICIT,
-    SAFE,
-    UNKNOWN;
+enum class Category(val displayName: String, val isSecurityThreat: Boolean = false) {
+    // Adult & Explicit
+    PORNOGRAPHY("Pornography"),
+    NUDITY("Nudity"),
+    SEXUAL_SERVICES("Sexual Services"),
+    ADULT_DATING("Adult Dating"),
+    CAM("Live Webcam / Cam Shows"),
+    EXPLICIT_STREAMING("Adult Streaming"),
+    ADULT_SOCIAL("Adult Social Networks"),
+    ADULT_FORUM("Adult Forums"),
+    ADULT_SEARCH("Adult Search Engines"),
+    SEXUAL_HEALTH_EXPLICIT("Sexual Health Explicit"),
+    NSFW_MEDIA("NSFW Media Leaks"),
+    OTHER_EXPLICIT("Other Explicit Content"),
 
-    val isExplicit: Boolean
+    // Extended Content & Threat Categories (Master Prompt Section 9)
+    GAMBLING("Gambling & Betting"),
+    DRUGS("Illegal Drugs & Paraphernalia"),
+    MALWARE("Malware & Ransomware", isSecurityThreat = true),
+    PHISHING("Phishing & Deceptive Sites", isSecurityThreat = true),
+    SCAM("Fraud & Scam Sites", isSecurityThreat = true),
+    VIOLENCE("Extreme Violence & Gore"),
+    DATING("General Dating"),
+    SOCIAL_MEDIA("Social Media Platforms"),
+    SHORT_VIDEO("Short-form Video (Reels/TikTok/Shorts)"),
+    STREAMING("Video & Audio Streaming"),
+    PIRACY("Piracy & Torrent Portals"),
+    SUSPICIOUS_DOMAINS("Newly Registered / Suspicious Domains", isSecurityThreat = true),
+    TRACKING("Telemetry & Web Trackers"),
+    ADVERTISING("Aggressive Advertising Networks"),
+    CRYPTOMINING("Unauthorized Cryptominers", isSecurityThreat = true),
+
+    // Baseline
+    SAFE("Safe / Allowed Content"),
+    UNKNOWN("Uncategorized Content");
+
+    val isThreatOrExplicit: Boolean
         get() = this != SAFE && this != UNKNOWN
 }
 
 /**
- * Enforcement decisions emitted by policy engine.
+ * Enforcement decisions emitted by the 10-step central policy engine.
  */
 enum class PolicyDecision {
     ALLOW,
     BLOCK,
     RESTRICT,
+    SAFESEARCH,
+    REDIRECT,
+    AUDIT_ONLY,
     UNCERTAIN
 }
 
@@ -52,11 +75,16 @@ enum class BlockReason {
     SAFESEARCH_ENFORCEMENT,
     TAMPER_LOCKDOWN,
     ADMIN_RESTRICTION,
-    SECURE_DEFAULT_FALLBACK
+    SECURE_DEFAULT_FALLBACK,
+    THREAT_INTELLIGENCE_MATCH,
+    CATEGORY_POLICY_BLOCKED,
+    APP_POLICY_BLOCKED,
+    SCHEDULE_LOCKDOWN,
+    TEMPORARY_OVERRIDE_ACTIVE
 }
 
 /**
- * Operational mode of TaRZI on the Android device.
+ * Operational mode of Xblocker on the Android device.
  */
 enum class DeviceMode {
     NORMAL_CONSUMER,
@@ -85,17 +113,11 @@ enum class AppPolicy {
 }
 
 /**
- * Domain matching algorithm type.
+ * Domain matching rule type.
  */
 enum class MatchType {
     EXACT,
     SUBDOMAIN,
-    SUFFIX,
-    WILDCARD
+    REGEX,
+    TLD
 }
-
-// NOTE: Capability, RiskLevel, ConfirmationPolicy, ToolRequest, ToolResult,
-// ProtectionProfile, MusicSource, Track, PlaybackCommand, RepeatMode, and
-// PlaybackState moved to :contracts (com.antigravity.shieldx.core.model) —
-// they're part of the MusicController/ProtectionController contract surface
-// that :music and :ai-agent also need, so they can't live app-only.

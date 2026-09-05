@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
@@ -106,16 +106,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
 
-    // Media3 & ExoPlayer
-    implementation(libs.media3.exoplayer)
-    implementation(libs.media3.session)
-    implementation(libs.media3.ui)
-
     // Coil Image Loading
     implementation(libs.coil.compose)
-
-    // YouTube stream resolution
-    implementation(libs.newpipe.extractor)
 
     // Network & JSON
     implementation(libs.okhttp)
@@ -136,3 +128,4 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+

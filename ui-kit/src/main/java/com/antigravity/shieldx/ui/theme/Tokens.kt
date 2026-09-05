@@ -1,4 +1,4 @@
-package com.antigravity.shieldx.ui.theme
+﻿package com.antigravity.shieldx.ui.theme
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
@@ -26,12 +26,12 @@ object Space {
 }
 
 /**
- * Two radii, deliberately. More than that and containers stop reading as one
- * family. Nothing is a pill except genuinely pill-shaped controls.
+ * Cohesive radius system for consistent card, modal, and control surfaces.
  */
 object Radius {
     val sm = RoundedCornerShape(10.dp)
     val md = RoundedCornerShape(14.dp)
+    val lg = RoundedCornerShape(18.dp)
     val full = RoundedCornerShape(percent = 50)
 }
 
